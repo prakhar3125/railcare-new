@@ -1210,7 +1210,7 @@ const Header = ({ navigate, currentPath }) => {
                                 <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
                                     <div className="p-3 border-b border-gray-100">
                                         <p className="font-medium text-gray-800 text-sm truncate">Guest User</p>
-                                        <p className="text-xs text-gray-500 truncate">user@example.com</p>
+                                        <p className="text-xs text-gray-500 truncate">prakhar@railcare.com</p>
                                     </div>
                                     <div className="py-2">
                                         <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
@@ -1336,7 +1336,7 @@ const Header = ({ navigate, currentPath }) => {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="font-medium text-gray-800 text-sm truncate">Guest User</p>
-                                            <p className="text-xs text-gray-500 truncate">user@example.com</p>
+                                            <p className="text-xs text-gray-500 truncate">prakhar@railcare.com</p>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
@@ -1754,7 +1754,7 @@ const HomePage = ({ navigate }) => {
 
 
 const ComplaintLookupPage = ({ onLookup }) => {
-    const [email, setEmail] = useState('');
+    const [email, setEmail] = useState('prakhar@railcare.com');
     const [phone, setPhone] = useState('');
 
     const handleSubmit = (e) => {
@@ -1848,7 +1848,7 @@ const ComplaintLookupPage = ({ onLookup }) => {
 
 const ComplaintFormPage = ({ onComplaintSubmit }) => {
     const [step, setStep] = useState(1);
-    const [pnr, setPnr] = useState('');
+    const [pnr, setPnr] = useState('6221583490');
     const [pnrDetails, setPnrDetails] = useState(null);
     const [isFetching, setIsFetching] = useState(false);
     const [noPnr, setNoPnr] = useState(false);
@@ -1859,16 +1859,46 @@ const ComplaintFormPage = ({ onComplaintSubmit }) => {
     const [touchStartY, setTouchStartY] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentFocus, setCurrentFocus] = useState(null);
-
     const [formData, setFormData] = useState({
-        category: '',
-        title: '',
-        description: '',
-        files: [],
-        isUrgent: false,
-        email: '',
-        phone: ''
-    });
+    category: '',
+    title: 'Complaint Regarding Poor Food Quality During Train Journey',
+    description: 'The food quality served during my train journey was very poor and unhygienic. Please take strict action to ensure better standards for passengers.',
+    files: [],
+    isUrgent: false,
+    email: 'prakhar@railcare.com',
+    phone: '9876543210'
+});
+
+// ADD THIS useEffect after handleTextAnalysis function is defined
+useEffect(() => {
+    // Trigger auto-categorization for default description
+    if (formData.description && formData.description.trim().length >= 20) {
+        const categoryData = analyzeComplaintText(formData.description);
+        setDetectedCategory(categoryData);
+        setHasAnalyzedText(true);
+        
+        if (categoryData) {
+            setFormData(prev => ({
+                ...prev,
+                category: categoryData.category,
+                assignedTo: categoryData.department,
+                subcategory: categoryData.subcategory,
+                priority: categoryData.priority
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                category: 'To be assigned',
+                assignedTo: 'General Grievance Cell',
+                subcategory: '',
+                priority: 'medium'
+            }));
+        }
+    }
+}, []);
+
+
+    
 
     // Mobile-specific viewport and keyboard handling
     useEffect(() => {
@@ -2577,8 +2607,8 @@ const ComplaintFormPage = ({ onComplaintSubmit }) => {
     );
 };
 const TrackComplaintPage = ({ onTrack }) => {
-    const [complaintId, setComplaintId] = useState('');
-    const [identifier, setIdentifier] = useState('');
+    const [complaintId, setComplaintId] = useState('CMP2025060802');
+    const [identifier, setIdentifier] = useState('9876543210');
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -3167,7 +3197,7 @@ const App = () => {
         description: 'Payment was deducted from my account but the ticket was not booked.', 
         assignedTo: 'Finance - Refunds Team',
         priority: 'high',
-        email: 'user@example.com',
+        email: 'prakhar@railcare.com',
         phone: '+91 9876543210',
         // ✅ New simplified 3-step timeline
         history: [
@@ -3207,7 +3237,7 @@ const App = () => {
         description: 'The meal served was stale and cold.', 
         assignedTo: 'Catering Quality Team',
         priority: 'medium',
-        email: 'user@example.com',
+        email: 'prakhar@railcare.com',
         phone: '+91 9876543210',
         // ✅ New simplified 3-step timeline
         history: [
