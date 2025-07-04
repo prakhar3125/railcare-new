@@ -20,7 +20,7 @@ import {
 
 const StaffLoginPage = ({ onBack, complaints, navigate, onUpdateComplaint }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [loginData, setLoginData] = useState({ username: '', password: '' });
+    const [loginData, setLoginData] = useState({ username: 'admin@railcare.com', password: 'admin@railcare.com' });
     const [loggedInUser, setLoggedInUser] = useState(null);
     const [selectedDepartment, setSelectedDepartment] = useState('');
     const [selectedSubDepartment, setSelectedSubDepartment] = useState('');
@@ -47,13 +47,14 @@ const StaffLoginPage = ({ onBack, complaints, navigate, onUpdateComplaint }) => 
         'Social Media & PR': ['Social Media Crisis Team', 'Public Relations Crisis Team', 'Content Moderation Team'],
         'Default Assignment': ['General Grievance Cell']
     };
+    
  // Replace your existing useEffect with this one
 useEffect(() => {
     const staffIsLoggedIn = localStorage.getItem('staffIsLoggedIn');
     if (staffIsLoggedIn) {
         setIsLoggedIn(true);
         setLoggedInUser({
-            username: 'admin',
+            username: 'admin@railcare.com',
             role: 'Administrator',
             loginTime: localStorage.getItem('staffLoginTime') || new Date().toLocaleString(),
             department: 'System Administration'
@@ -91,7 +92,7 @@ useEffect(() => {
 
      const handleLogin = (e) => {
         e.preventDefault();
-        if (loginData.username === 'admin' && loginData.password === 'admin') {
+        if (loginData.username === 'admin@railcare.com' && loginData.password === 'admin@railcare.com') {
             const loginTime = new Date().toLocaleString();
             // 1. Persist login state in browser's local storage
             localStorage.setItem('staffIsLoggedIn', 'true');
@@ -349,13 +350,13 @@ const handleDepartmentChange = (department) => {
                             </button>
                         </form>
 
-                        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                        {/* <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                             <p className="text-sm text-gray-600 text-center">
                                 <strong>Demo Credentials:</strong><br />
                                 Username: admin<br />
                                 Password: admin
                             </p>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>
