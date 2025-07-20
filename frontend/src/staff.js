@@ -17,12 +17,11 @@ import {
     X,
     MessageSquare
 } from 'lucide-react';
-// NEW IMPORTS - Add these for Supabase integration
 import { getComplaints, updateComplaintStatus } from './services/complaintService';
 import { getDepartmentStructure } from './utils/categoryHelpers';
 
-// UPDATED PROPS - Removed complaints and onUpdateComplaint
 const StaffLoginPage = ({ onBack, navigate }) => {
+    // ✅ ALL STATE VARIABLES INSIDE COMPONENT
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loginData, setLoginData] = useState({ username: 'admin@railcare.com', password: 'admin@railcare.com' });
     const [loggedInUser, setLoggedInUser] = useState(null);
@@ -35,25 +34,27 @@ const StaffLoginPage = ({ onBack, navigate }) => {
     const [newStatus, setNewStatus] = useState('');
     const [newRemark, setNewRemark] = useState('');
 
-    // NEW STATE VARIABLES for Supabase
+    // Supabase state variables
     const [allComplaints, setAllComplaints] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [lastRefresh, setLastRefresh] = useState(new Date());
 
-    // UPDATED - Dynamic department structure from categoryKeywords.js
+    // Auto-refresh state variables
+    const [autoRefreshInterval, setAutoRefreshInterval] = useState(null);
+    const [newMessageAlert, setNewMessageAlert] = useState(false);
+
+    // Constants
     const departmentStructure = getDepartmentStructure();
-    
     const statusOptions = ['Submitted', 'In Progress', 'Resolved', 'Escalated', 'Closed'];
 
-    // NEW FUNCTION - Load complaints from Supabase
+    // ✅ FUNCTIONS INSIDE COMPONENT
     const loadComplaints = async () => {
         setLoading(true);
         setError(null);
         try {
             const result = await getComplaints();
             if (result.success) {
-                // Transform database data to match current UI structure
                 const transformedComplaints = result.data.map(complaint => ({
                     id: complaint.complaint_number || complaint.id,
                     title: complaint.title,
@@ -67,9 +68,7 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                     category: complaint.detected_category,
                     subcategory: complaint.detected_subcategory,
                     date: complaint.created_at,
-                    // Transform communications
                     communications: complaint.communications || [],
-                    // Transform history
                     history: complaint.complaint_history?.map(h => ({
                         action: h.action,
                         details: h.details,
@@ -91,53 +90,10 @@ const StaffLoginPage = ({ onBack, navigate }) => {
         }
     };
 
-    // NEW FUNCTION - Refresh complaints
     const handleRefresh = () => {
         loadComplaints();
+        setNewMessageAlert(false);
     };
-
-    // UPDATED useEffect - Load data from database
-    useEffect(() => {
-        const staffIsLoggedIn = localStorage.getItem('staffIsLoggedIn');
-        if (staffIsLoggedIn) {
-            setIsLoggedIn(true);
-            setLoggedInUser({
-                username: 'admin@railcare.com',
-                role: 'Administrator',
-                loginTime: localStorage.getItem('staffLoginTime') || new Date().toLocaleString(),
-                department: 'System Administration'
-            });
-
-            // Load complaints from database
-            loadComplaints();
-
-            // Restore saved filters
-            const savedDept = localStorage.getItem('staffSelectedDept');
-            const savedSubDept = localStorage.getItem('staffSelectedSubDept');
-            if (savedDept) {
-                setSelectedDepartment(savedDept);
-                if (savedSubDept) {
-                    setSelectedSubDepartment(savedSubDept);
-                }
-            }
-        }
-    }, []);
-
-    // NEW useEffect - Handle filtering when data changes
-    useEffect(() => {
-        if (selectedDepartment && allComplaints.length > 0) {
-            let newFilteredComplaints = [];
-            if (selectedSubDepartment) {
-                newFilteredComplaints = allComplaints.filter(c => c.assignedTo === selectedSubDepartment);
-            } else {
-                const subdepartments = departmentStructure[selectedDepartment] || [];
-                newFilteredComplaints = allComplaints.filter(complaint =>
-                    subdepartments.includes(complaint.assignedTo)
-                );
-            }
-            setFilteredComplaints(newFilteredComplaints);
-        }
-    }, [allComplaints, selectedDepartment, selectedSubDepartment]);
 
     const handleLogin = (e) => {
         e.preventDefault();
@@ -159,11 +115,13 @@ const StaffLoginPage = ({ onBack, navigate }) => {
     };
     
     const handleLogout = (redirectPath = '/staff-login') => {
+        // Clear all localStorage
         localStorage.removeItem('staffIsLoggedIn');
         localStorage.removeItem('staffLoginTime');
         localStorage.removeItem('staffSelectedDept');
         localStorage.removeItem('staffSelectedSubDept');
 
+        // Clear all state
         setIsLoggedIn(false);
         setLoggedInUser(null);
         setSelectedDepartment('');
@@ -172,11 +130,16 @@ const StaffLoginPage = ({ onBack, navigate }) => {
         setAllComplaints([]);
         setLoginData({ username: '', password: '' });
         setEditingComplaint(null);
+
+        // Clear auto-refresh interval
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            setAutoRefreshInterval(null);
+        }
         
         navigate(redirectPath);
     };
 
-    // UPDATED - Use allComplaints instead of complaints prop
     const handleDepartmentChange = (department) => {
         setSelectedDepartment(department);
         setSelectedSubDepartment('');
@@ -219,12 +182,10 @@ const StaffLoginPage = ({ onBack, navigate }) => {
         setNewRemark('');
     };
 
-    // UPDATED - Use Supabase for updating complaints
     const handleSaveChanges = async (complaintId) => {
         try {
             setLoading(true);
             
-            // Find the complaint to get the actual database ID
             const complaint = allComplaints.find(c => c.id === complaintId);
             if (!complaint) {
                 alert('Complaint not found');
@@ -239,7 +200,6 @@ const StaffLoginPage = ({ onBack, navigate }) => {
             );
 
             if (result.success) {
-                // Reload complaints to get updated data
                 await loadComplaints();
                 setEditingComplaint(null);
                 setNewStatus('');
@@ -306,6 +266,7 @@ const StaffLoginPage = ({ onBack, navigate }) => {
         }
     };
 
+    // ✅ COMPUTED VALUES
     const filteredAndSearchedComplaints = useMemo(() => {
         return filteredComplaints.filter(complaint => {
             const lowerSearchTerm = searchTerm.toLowerCase();
@@ -318,6 +279,108 @@ const StaffLoginPage = ({ onBack, navigate }) => {
         });
     }, [filteredComplaints, searchTerm, statusFilter]);
 
+    // ✅ EFFECTS - ALL INSIDE COMPONENT
+    useEffect(() => {
+        const staffIsLoggedIn = localStorage.getItem('staffIsLoggedIn');
+        if (staffIsLoggedIn) {
+            setIsLoggedIn(true);
+            setLoggedInUser({
+                username: 'admin@railcare.com',
+                role: 'Administrator',
+                loginTime: localStorage.getItem('staffLoginTime') || new Date().toLocaleString(),
+                department: 'System Administration'
+            });
+
+            loadComplaints();
+
+            const savedDept = localStorage.getItem('staffSelectedDept');
+            const savedSubDept = localStorage.getItem('staffSelectedSubDept');
+            if (savedDept) {
+                setSelectedDepartment(savedDept);
+                if (savedSubDept) {
+                    setSelectedSubDepartment(savedSubDept);
+                }
+            }
+        }
+    }, []);
+
+    // Auto-refresh effect
+    useEffect(() => {
+        if (selectedDepartment && isLoggedIn && !loading) {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            const interval = setInterval(async () => {
+                try {
+                    const result = await getComplaints();
+                    if (result.success) {
+                        const transformedComplaints = result.data.map(complaint => ({
+                            id: complaint.complaint_number || complaint.id,
+                            title: complaint.title,
+                            description: complaint.description,
+                            email: complaint.email,
+                            phone: complaint.phone,
+                            location: complaint.location,
+                            status: complaint.status,
+                            priority: complaint.priority,
+                            assignedTo: complaint.assigned_to,
+                            category: complaint.detected_category,
+                            subcategory: complaint.detected_subcategory,
+                            date: complaint.created_at,
+                            communications: complaint.communications || [],
+                            history: complaint.complaint_history?.map(h => ({
+                                action: h.action,
+                                details: h.details,
+                                remark: h.remark,
+                                date: h.created_at,
+                                completed: h.completed
+                            })) || []
+                        }));
+                        
+                        const oldTotalMessages = allComplaints.reduce((sum, c) => sum + (c.communications?.length || 0), 0);
+                        const newTotalMessages = transformedComplaints.reduce((sum, c) => sum + (c.communications?.length || 0), 0);
+                        
+                        if (newTotalMessages > oldTotalMessages) {
+                            setNewMessageAlert(true);
+                            setTimeout(() => setNewMessageAlert(false), 5000);
+                        }
+                        
+                        setAllComplaints(transformedComplaints);
+                        setLastRefresh(new Date());
+                    }
+                } catch (error) {
+                    console.error('Auto-refresh error:', error);
+                }
+            }, 15000);
+
+            setAutoRefreshInterval(interval);
+        }
+
+        return () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        };
+    }, [selectedDepartment, isLoggedIn, allComplaints]);
+
+    // Filtering effect
+    useEffect(() => {
+        if (selectedDepartment && allComplaints.length > 0) {
+            let newFilteredComplaints = [];
+            if (selectedSubDepartment) {
+                newFilteredComplaints = allComplaints.filter(c => c.assignedTo === selectedSubDepartment);
+            } else {
+                const subdepartments = departmentStructure[selectedDepartment] || [];
+                newFilteredComplaints = allComplaints.filter(complaint =>
+                    subdepartments.includes(complaint.assignedTo)
+                );
+            }
+            setFilteredComplaints(newFilteredComplaints);
+        }
+    }, [allComplaints, selectedDepartment, selectedSubDepartment, departmentStructure]);
+
+    // ✅ LOGIN FORM RENDER
     if (!isLoggedIn) {
         return (
             <div className="flex items-center justify-center py-8 sm:py-12 px-3 sm:px-4">
@@ -395,8 +458,10 @@ const StaffLoginPage = ({ onBack, navigate }) => {
         );
     }
 
+    // ✅ MAIN DASHBOARD RENDER
     return (
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+            {/* Header Section */}
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
                     <div className="flex items-center space-x-3 sm:space-x-4">
@@ -457,6 +522,7 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                 </div>
             </div>
 
+            {/* Department Selection */}
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-bold text-gray-900">Department Selection</h2>
@@ -465,10 +531,16 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                             <button
                                 onClick={handleRefresh}
                                 disabled={loading}
-                                className="flex items-center space-x-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                                className={`flex items-center space-x-1 px-3 py-1 rounded-lg transition-colors disabled:opacity-50 ${
+                                    newMessageAlert 
+                                        ? 'bg-red-100 text-red-700 hover:bg-red-200 animate-pulse' 
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                }`}
                             >
                                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                                <span className="text-sm">Refresh</span>
+                                <span className="text-sm">
+                                    {newMessageAlert ? 'New Messages!' : 'Refresh'}
+                                </span>
                             </button>
                             <span className="text-xs text-gray-500">
                                 Last updated: {lastRefresh.toLocaleTimeString()}
@@ -539,6 +611,7 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                 </div>
             )}
 
+            {/* Complaints Table/List */}
             {selectedDepartment && !loading && (
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
                     <div className="flex flex-col space-y-4">
@@ -589,10 +662,12 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                 </div>
             )}
 
+            {/* Complaints Display */}
             {selectedDepartment && !loading && (
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {filteredAndSearchedComplaints.length > 0 ? (
                         <>
+                            {/* Desktop Table */}
                             <div className="hidden lg:block overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
@@ -610,31 +685,89 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                                         {filteredAndSearchedComplaints.map((complaint) => (
                                             <React.Fragment key={complaint.id}>
                                                 <tr className="hover:bg-gray-50" data-complaint-id={complaint.id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{complaint.id}</td>
-                                                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="break-words whitespace-normal leading-tight">{complaint.title}</div></td>
-                                                    <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span></td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        <div className="flex items-center space-x-2">
+                                                            <span>{complaint.id}</span>
+                                                            {complaint.communications && complaint.communications.length > 0 && (
+                                                                <div className="relative">
+                                                                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                                                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-3 w-3 flex items-center justify-center text-[10px]">
+                                                                        {complaint.communications.length}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                                                        <div className="break-words whitespace-normal leading-tight">{complaint.title}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
+                                                            {complaint.priority}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         {editingComplaint === complaint.id ? (
-                                                            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="text-xs border border-gray-300 rounded px-2 py-1">
-                                                                {statusOptions.map(status => (<option key={status} value={status}>{status}</option>))}
+                                                            <select 
+                                                                value={newStatus} 
+                                                                onChange={(e) => setNewStatus(e.target.value)} 
+                                                                className="text-xs border border-gray-300 rounded px-2 py-1"
+                                                            >
+                                                                {statusOptions.map(status => (
+                                                                    <option key={status} value={status}>{status}</option>
+                                                                ))}
                                                             </select>
                                                         ) : (
-                                                            <div className="flex items-center space-x-2">{getStatusIcon(complaint.status)}<span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(complaint.status)}`}>{complaint.status}</span></div>
+                                                            <div className="flex items-center space-x-2">
+                                                                {getStatusIcon(complaint.status)}
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(complaint.status)}`}>
+                                                                    {complaint.status}
+                                                                </span>
+                                                            </div>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(complaint.date).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{complaint.email}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {new Date(complaint.date).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {complaint.email}
+                                                    </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                         <div className="flex items-center space-x-2">
                                                             {editingComplaint === complaint.id ? (
                                                                 <>
-                                                                    <button onClick={() => handleSaveChanges(complaint.id)} disabled={loading} className="text-green-600 hover:text-green-900 flex items-center space-x-1 disabled:opacity-50"><Save className="h-4 w-4" /><span>Save</span></button>
-                                                                    <button onClick={handleCancelEdit} className="text-red-600 hover:text-red-900 flex items-center space-x-1"><X className="h-4 w-4" /><span>Cancel</span></button>
+                                                                    <button 
+                                                                        onClick={() => handleSaveChanges(complaint.id)} 
+                                                                        disabled={loading} 
+                                                                        className="text-green-600 hover:text-green-900 flex items-center space-x-1 disabled:opacity-50"
+                                                                    >
+                                                                        <Save className="h-4 w-4" />
+                                                                        <span>Save</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={handleCancelEdit} 
+                                                                        className="text-red-600 hover:text-red-900 flex items-center space-x-1"
+                                                                    >
+                                                                        <X className="h-4 w-4" />
+                                                                        <span>Cancel</span>
+                                                                    </button>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <button onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)} className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"><Eye className="h-4 w-4" /><span>View</span></button>
-                                                                    <button onClick={() => handleEditComplaint(complaint)} className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"><Edit className="h-4 w-4" /><span>Edit</span></button>
+                                                                    <button 
+                                                                        onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)} 
+                                                                        className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"
+                                                                    >
+                                                                        <Eye className="h-4 w-4" />
+                                                                        <span>View</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleEditComplaint(complaint)} 
+                                                                        className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                                                                    >
+                                                                        <Edit className="h-4 w-4" />
+                                                                        <span>Edit</span>
+                                                                    </button>
                                                                 </>
                                                             )}
                                                         </div>
@@ -646,14 +779,22 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                                                             <div className="space-y-3">
                                                                 <div>
                                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Add Remark</label>
-                                                                    <textarea value={newRemark} onChange={(e) => setNewRemark(e.target.value)} placeholder="Enter your remark here..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm" rows="3"></textarea>
+                                                                    <textarea 
+                                                                        value={newRemark} 
+                                                                        onChange={(e) => setNewRemark(e.target.value)} 
+                                                                        placeholder="Enter your remark here..." 
+                                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm" 
+                                                                        rows="3"
+                                                                    />
                                                                 </div>
                                                                 {complaint.history && complaint.history.filter(step => step.action === 'Investigation & Resolution' && step.remark).length > 0 && (
                                                                     <div>
                                                                         <h4 className="text-sm font-medium text-gray-700 mb-2">Previous Remarks:</h4>
                                                                         <div className="space-y-2 max-h-32 overflow-y-auto">
                                                                             {complaint.history.filter(step => step.action === 'Investigation & Resolution' && step.remark).map((step, index) => (
-                                                                                <div key={index} className="bg-white p-2 rounded border text-xs"><p className="text-gray-700">{step.remark}</p></div>
+                                                                                <div key={index} className="bg-white p-2 rounded border text-xs">
+                                                                                    <p className="text-gray-700">{step.remark}</p>
+                                                                                </div>
                                                                             ))}
                                                                         </div>
                                                                     </div>
@@ -668,42 +809,110 @@ const StaffLoginPage = ({ onBack, navigate }) => {
                                 </table>
                             </div>
 
+                            {/* Mobile Cards */}
                             <div className="lg:hidden">
                                 <div className="divide-y divide-gray-200">
                                     {filteredAndSearchedComplaints.map((complaint) => (
                                         <div key={complaint.id} className="p-4 space-y-3" data-complaint-id={complaint.id}>
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center space-x-2 mb-1"><span className="text-sm font-bold text-gray-900 truncate">{complaint.id}</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span></div>
+                                                    <div className="flex items-center space-x-2 mb-1">
+                                                        <span className="text-sm font-bold text-gray-900 truncate">{complaint.id}</span>
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
+                                                            {complaint.priority}
+                                                        </span>
+                                                        {complaint.communications && complaint.communications.length > 0 && (
+                                                            <div className="relative">
+                                                                <MessageSquare className="h-4 w-4 text-blue-600" />
+                                                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-3 w-3 flex items-center justify-center text-[10px]">
+                                                                    {complaint.communications.length}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <h3 className="text-sm font-medium text-gray-900 line-clamp-2 leading-tight">{complaint.title}</h3>
                                                 </div>
-                                                <div className="flex items-center space-x-2 ml-3">{getStatusIcon(complaint.status)}<span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(complaint.status)}`}>{complaint.status}</span></div>
+                                                <div className="flex items-center space-x-2 ml-3">
+                                                    {getStatusIcon(complaint.status)}
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(complaint.status)}`}>
+                                                        {complaint.status}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3 text-xs">
-                                                <div><span className="text-gray-500 font-medium">Submitted:</span><div className="text-gray-900">{new Date(complaint.date).toLocaleDateString()}</div></div>
-                                                <div><span className="text-gray-500 font-medium">Contact:</span><div className="text-gray-900 truncate">{complaint.email}</div></div>
+                                                <div>
+                                                    <span className="text-gray-500 font-medium">Submitted:</span>
+                                                    <div className="text-gray-900">{new Date(complaint.date).toLocaleDateString()}</div>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 font-medium">Contact:</span>
+                                                    <div className="text-gray-900 truncate">{complaint.email}</div>
+                                                </div>
                                             </div>
                                             {editingComplaint === complaint.id ? (
                                                 <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-1">Update Status</label>
-                                                        <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm" style={{ fontSize: '16px' }}>
-                                                            {statusOptions.map(status => (<option key={status} value={status}>{status}</option>))}
+                                                        <select 
+                                                            value={newStatus} 
+                                                            onChange={(e) => setNewStatus(e.target.value)} 
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm" 
+                                                            style={{ fontSize: '16px' }}
+                                                        >
+                                                            {statusOptions.map(status => (
+                                                                <option key={status} value={status}>{status}</option>
+                                                            ))}
                                                         </select>
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-1">Add Remark</label>
-                                                        <textarea value={newRemark} onChange={(e) => setNewRemark(e.target.value)} placeholder="Enter your remark here..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm resize-none" rows="3" style={{ fontSize: '16px' }}></textarea>
+                                                        <textarea 
+                                                            value={newRemark} 
+                                                            onChange={(e) => setNewRemark(e.target.value)} 
+                                                            placeholder="Enter your remark here..." 
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm resize-none" 
+                                                            rows="3" 
+                                                            style={{ fontSize: '16px' }}
+                                                        />
                                                     </div>
                                                     <div className="flex space-x-2">
-                                                        <button onClick={() => handleSaveChanges(complaint.id)} disabled={loading} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors touch-manipulation disabled:opacity-50" style={{ minHeight: '44px' }}><Save className="h-4 w-4" /><span>Save Changes</span></button>
-                                                        <button onClick={handleCancelEdit} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><X className="h-4 w-4" /><span>Cancel</span></button>
+                                                        <button 
+                                                            onClick={() => handleSaveChanges(complaint.id)} 
+                                                            disabled={loading} 
+                                                            className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors touch-manipulation disabled:opacity-50" 
+                                                            style={{ minHeight: '44px' }}
+                                                        >
+                                                            <Save className="h-4 w-4" />
+                                                            <span>Save Changes</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={handleCancelEdit} 
+                                                            className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors touch-manipulation" 
+                                                            style={{ minHeight: '44px' }}
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                            <span>Cancel</span>
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="flex space-x-2">
-                                                    <button onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><Eye className="h-4 w-4" /><span>View Details</span></button>
-                                                    <button onClick={() => handleEditComplaint(complaint)} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><Edit className="h-4 w-4" /><span>Edit Status</span></button>
+                                                    <button 
+                                                        onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)} 
+                                                        className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors touch-manipulation" 
+                                                        style={{ minHeight: '44px' }}
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                        <span>View Details</span>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleEditComplaint(complaint)} 
+                                                        className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors touch-manipulation" 
+                                                        style={{ minHeight: '44px' }}
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                        <span>Edit Status</span>
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>

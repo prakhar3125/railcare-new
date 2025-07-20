@@ -2801,27 +2801,37 @@ const ComplaintDetailsPage = ({ complaint, onBack }) => {
 
 
 
-    const handleSendMessage = () => {
-        if (!newMessage.trim()) return;
+  // ✅ FIXED: Replace your current handleSendMessage with this
+const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+    
+    try {
+        // Use the sendUserMessage function from complaintService
+        const { sendUserMessage } = await import('./services/complaintService');
         
-        const userMessage = {
-            sender: 'You',
-            message: newMessage,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        const updatedMessages = [...messages, userMessage];
-        setMessages(updatedMessages);
-        setNewMessage('');
+        const result = await sendUserMessage(complaint.id, newMessage.trim(), 'You');
         
-        setTimeout(() => {
-            const botReply = {
-                sender: 'Support Agent',
-                message: 'Thank you for your message. We have received it and will review it shortly. Our team is committed to resolving your concern.',
+        if (result.success) {
+            // Add message to local state for immediate display
+            const userMessage = {
+                sender: 'You',
+                message: newMessage,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
-            setMessages(prev => [...prev, botReply]);
-        }, 1500);
-    };
+            
+            setMessages(prev => [...prev, userMessage]);
+            setNewMessage('');
+            
+            // Don't add the automatic bot response since this is real now
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        alert('Failed to send message. Please try again.');
+    }
+};
+
 
     const statusStyles = {
         'In Progress': 'bg-orange-50 text-orange-700 border-orange-200',
@@ -3327,7 +3337,7 @@ const App = () => {
         const [isLoading, setIsLoading] = useState(true);
         const [error, setError] = useState(null);
         const [retryCount, setRetryCount] = useState(0);
-        
+
         const fetchComplaint = async (id) => {
             setIsLoading(true);
             setError(null);
