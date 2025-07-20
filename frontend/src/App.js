@@ -22,6 +22,564 @@ import railwayImageBW from './pexels-raj-photography-83911134-20402113.jpg';
 import railwayImage1 from './pexels-thangpu-paite-3365148-13110584.jpg';
 import { submitComplaint, getComplaintsByContact, getComplaintById } from './services/complaintService';
 
+const SettingsPage = ({ onBack, navigate, showNotification }) => {
+    const [settings, setSettings] = useState({
+        notifications: {
+            email: true,
+            sms: true,
+            push: false,
+            statusUpdates: true,
+            promotions: false
+        },
+        privacy: {
+            profileVisibility: 'private',
+            dataSharing: false,
+            analyticsOptIn: true
+        },
+        preferences: {
+            language: 'en',
+            theme: 'light',
+            timezone: 'Asia/Kolkata',
+            defaultPriority: 'medium'
+        },
+        account: {
+            email: 'prakhar@railcare.com',
+            phone: '+91 9876543210',
+            twoFactorAuth: false
+        }
+    });
+
+    const [activeTab, setActiveTab] = useState('notifications');
+    const [hasChanges, setHasChanges] = useState(false);
+
+    const handleSettingChange = (category, key, value) => {
+        setSettings(prev => ({
+            ...prev,
+            [category]: {
+                ...prev[category],
+                [key]: value
+            }
+        }));
+        setHasChanges(true);
+    };
+
+    const handleSaveSettings = () => {
+        // Simulate API call
+        setTimeout(() => {
+            showNotification('success', 'Settings Saved', 'Your preferences have been updated successfully.');
+            setHasChanges(false);
+        }, 500);
+    };
+
+    const tabs = [
+        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'account', label: 'Account', icon: User },
+        { id: 'privacy', label: 'Privacy', icon: Shield },
+        { id: 'preferences', label: 'Preferences', icon: Settings }
+    ];
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    <button 
+                        onClick={onBack} 
+                        className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-2 group"
+                    >
+                        <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                        <span>Back</span>
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
+                        <p className="text-gray-600">Manage your account preferences and privacy settings</p>
+                    </div>
+                </div>
+                {hasChanges && (
+                    <button 
+                        onClick={handleSaveSettings}
+                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                    >
+                        Save Changes
+                    </button>
+                )}
+            </div>
+
+            <div className="grid lg:grid-cols-4 gap-6">
+                {/* Sidebar Navigation */}
+                <div className="lg:col-span-1">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                        <nav className="space-y-2">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                                        activeTab === tab.id 
+                                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 border' 
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                                    }`}
+                                >
+                                    <tab.icon className="h-5 w-5" />
+                                    <span className="font-medium">{tab.label}</span>
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+
+                {/* Settings Content */}
+                <div className="lg:col-span-3">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        {/* Notifications Tab */}
+                        {activeTab === 'notifications' && (
+                            <div className="space-y-6">
+                                <div className="border-b border-gray-200 pb-4">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-2">Notification Preferences</h3>
+                                    <p className="text-gray-600 text-sm">Choose how you want to be notified about complaint updates</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-gray-800">Email Notifications</h4>
+                                            <p className="text-sm text-gray-600">Receive updates via email</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.notifications.email}
+                                                onChange={(e) => handleSettingChange('notifications', 'email', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-gray-800">SMS Notifications</h4>
+                                            <p className="text-sm text-gray-600">Receive critical updates via SMS</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.notifications.sms}
+                                                onChange={(e) => handleSettingChange('notifications', 'sms', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-gray-800">Status Update Notifications</h4>
+                                            <p className="text-sm text-gray-600">Get notified when complaint status changes</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.notifications.statusUpdates}
+                                                onChange={(e) => handleSettingChange('notifications', 'statusUpdates', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Account Tab */}
+                        {activeTab === 'account' && (
+                            <div className="space-y-6">
+                                <div className="border-b border-gray-200 pb-4">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-2">Account Information</h3>
+                                    <p className="text-gray-600 text-sm">Manage your personal account details</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                                        <input
+                                            type="email"
+                                            value={settings.account.email}
+                                            onChange={(e) => handleSettingChange('account', 'email', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            value={settings.account.phone}
+                                            onChange={(e) => handleSettingChange('account', 'phone', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-gray-800">Two-Factor Authentication</h4>
+                                            <p className="text-sm text-gray-600">Add an extra layer of security</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.account.twoFactorAuth}
+                                                onChange={(e) => handleSettingChange('account', 'twoFactorAuth', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Privacy Tab */}
+                        {activeTab === 'privacy' && (
+                            <div className="space-y-6">
+                                <div className="border-b border-gray-200 pb-4">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-2">Privacy Settings</h3>
+                                    <p className="text-gray-600 text-sm">Control your data privacy and sharing preferences</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Profile Visibility</label>
+                                        <select
+                                            value={settings.privacy.profileVisibility}
+                                            onChange={(e) => handleSettingChange('privacy', 'profileVisibility', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        >
+                                            <option value="private">Private</option>
+                                            <option value="public">Public</option>
+                                            <option value="limited">Limited</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-gray-800">Data Sharing</h4>
+                                            <p className="text-sm text-gray-600">Share anonymized data for service improvement</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.privacy.dataSharing}
+                                                onChange={(e) => handleSettingChange('privacy', 'dataSharing', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Preferences Tab */}
+                        {activeTab === 'preferences' && (
+                            <div className="space-y-6">
+                                <div className="border-b border-gray-200 pb-4">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-2">General Preferences</h3>
+                                    <p className="text-gray-600 text-sm">Customize your RailCare experience</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                                        <select
+                                            value={settings.preferences.language}
+                                            onChange={(e) => handleSettingChange('preferences', 'language', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        >
+                                            <option value="en">English</option>
+                                            <option value="hi">हिंदी (Hindi)</option>
+                                            <option value="ta">தமிழ் (Tamil)</option>
+                                            <option value="te">తెలుగు (Telugu)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Theme</label>
+                                        <select
+                                            value={settings.preferences.theme}
+                                            onChange={(e) => handleSettingChange('preferences', 'theme', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        >
+                                            <option value="light">Light</option>
+                                            <option value="dark">Dark</option>
+                                            <option value="auto">Auto</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Default Priority</label>
+                                        <select
+                                            value={settings.preferences.defaultPriority}
+                                            onChange={(e) => handleSettingChange('preferences', 'defaultPriority', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        >
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="urgent">Urgent</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+const HelpSupportPage = ({ onBack, navigate, showNotification }) => {
+    const [activeCategory, setActiveCategory] = useState('getting-started');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const helpCategories = [
+        {
+            id: 'getting-started',
+            title: 'Getting Started',
+            icon: BookOpen,
+            articles: [
+                {
+                    title: 'How to File Your First Complaint',
+                    content: 'Learn how to submit a complaint using our 4-step wizard process.',
+                    lastUpdated: '2025-01-15'
+                },
+                {
+                    title: 'Understanding Complaint Categories',
+                    content: 'Discover how our AI automatically categorizes complaints for faster resolution.',
+                    lastUpdated: '2025-01-10'
+                },
+                {
+                    title: 'Tracking Your Complaint Status',
+                    content: 'Monitor your complaint progress with real-time updates and timeline tracking.',
+                    lastUpdated: '2025-01-08'
+                }
+            ]
+        },
+        {
+            id: 'account-management',
+            title: 'Account Management',
+            icon: User,
+            articles: [
+                {
+                    title: 'Managing Your Profile',
+                    content: 'Update your contact information and notification preferences.',
+                    lastUpdated: '2025-01-12'
+                },
+                {
+                    title: 'Privacy Settings',
+                    content: 'Control your data privacy and visibility settings.',
+                    lastUpdated: '2025-01-05'
+                },
+                {
+                    title: 'Security Best Practices',
+                    content: 'Keep your account secure with two-factor authentication and strong passwords.',
+                    lastUpdated: '2025-01-03'
+                }
+            ]
+        },
+        {
+            id: 'troubleshooting',
+            title: 'Troubleshooting',
+            icon: AlertTriangle,
+            articles: [
+                {
+                    title: 'Common Issues and Solutions',
+                    content: 'Quick fixes for the most frequently encountered problems.',
+                    lastUpdated: '2025-01-14'
+                },
+                {
+                    title: 'PNR Not Found Error',
+                    content: 'Steps to resolve PNR validation issues during complaint submission.',
+                    lastUpdated: '2025-01-11'
+                },
+                {
+                    title: 'Upload Problems',
+                    content: 'Troubleshoot file upload issues and supported formats.',
+                    lastUpdated: '2025-01-09'
+                }
+            ]
+        }
+    ];
+
+    const contactOptions = [
+        {
+            type: 'Emergency',
+            value: '139',
+            description: 'For critical safety issues and emergencies',
+            icon: Phone,
+            color: 'bg-red-50 text-red-700 border-red-200'
+        },
+        {
+            type: 'General Support',
+            value: '1800-111-139',
+            description: '24/7 helpline for general inquiries',
+            icon: Phone,
+            color: 'bg-blue-50 text-blue-700 border-blue-200'
+        },
+        {
+            type: 'Email Support',
+            value: 'support@indianrailways.gov.in',
+            description: 'Non-urgent queries and detailed assistance',
+            icon: Mail,
+            color: 'bg-green-50 text-green-700 border-green-200'
+        },
+        {
+            type: 'Live Chat',
+            value: 'Available 9 AM - 9 PM',
+            description: 'Real-time support for immediate assistance',
+            icon: MessageSquare,
+            color: 'bg-purple-50 text-purple-700 border-purple-200'
+        }
+    ];
+
+    const filteredArticles = helpCategories
+        .find(cat => cat.id === activeCategory)
+        ?.articles.filter(article =>
+            article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            article.content.toLowerCase().includes(searchQuery.toLowerCase())
+        ) || [];
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    <button 
+                        onClick={onBack} 
+                        className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-2 group"
+                    >
+                        <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                        <span>Back</span>
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-800">Help & Support</h1>
+                        <p className="text-gray-600">Get answers and assistance for using RailCare</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Search help articles..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <div className="grid lg:grid-cols-4 gap-6">
+                {/* Categories Sidebar */}
+                <div className="lg:col-span-1">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                        <h3 className="font-bold text-gray-800 mb-4">Categories</h3>
+                        <nav className="space-y-2">
+                            {helpCategories.map(category => (
+                                <button
+                                    key={category.id}
+                                    onClick={() => setActiveCategory(category.id)}
+                                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                                        activeCategory === category.id 
+                                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 border' 
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                                    }`}
+                                >
+                                    <category.icon className="h-5 w-5" />
+                                    <span className="font-medium text-sm">{category.title}</span>
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+
+                {/* Help Articles */}
+                <div className="lg:col-span-3">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div className="border-b border-gray-200 pb-4 mb-6">
+                            <h3 className="text-lg font-bold text-gray-800">
+                                {helpCategories.find(cat => cat.id === activeCategory)?.title}
+                            </h3>
+                            <p className="text-gray-600 text-sm mt-1">
+                                {filteredArticles.length} article{filteredArticles.length !== 1 ? 's' : ''} found
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            {filteredArticles.map((article, index) => (
+                                <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-indigo-200 transition-colors cursor-pointer">
+                                    <h4 className="font-medium text-gray-800 mb-2">{article.title}</h4>
+                                    <p className="text-gray-600 text-sm mb-3">{article.content}</p>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">Last updated: {article.lastUpdated}</span>
+                                        <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                            Read More →
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Contact Support Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="text-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">Still Need Help?</h3>
+                    <p className="text-gray-600">Get in touch with our support team through multiple channels</p>
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {contactOptions.map((option, index) => (
+                        <div key={index} className={`p-4 rounded-lg border-2 ${option.color} text-center`}>
+                            <div className="flex justify-center mb-3">
+                                <option.icon className="h-6 w-6" />
+                            </div>
+                            <h4 className="font-bold text-sm mb-1">{option.type}</h4>
+                            <p className="font-medium text-sm mb-2">{option.value}</p>
+                            <p className="text-xs opacity-80">{option.description}</p>
+                            <button className="mt-3 w-full py-2 bg-white bg-opacity-50 rounded-md text-xs font-medium hover:bg-opacity-75 transition-colors">
+                                Contact Now
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Quick Tips */}
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 p-6">
+                <div className="flex items-start space-x-4">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                        <Zap className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-gray-800 mb-2">Pro Tips for Faster Support</h4>
+                        <ul className="text-gray-600 text-sm space-y-1">
+                            <li>• Include your complaint ID when contacting support</li>
+                            <li>• Attach relevant screenshots or documents</li>
+                            <li>• Be specific about the issue you're experiencing</li>
+                            <li>• Check our FAQ section first for quick answers</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // ++++++++++++++++++++=alternate algo++++++++++++++++++++
 // const analyzeComplaintText = (text) => {
@@ -1216,14 +1774,27 @@ const Header = ({ navigate, currentPath }) => {
                                         <p className="text-xs text-gray-500 truncate">prakhar@railcare.com</p>
                                     </div>
                                     <div className="py-2">
-                                        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                                            <Settings className="h-4 w-4 flex-shrink-0" />
-                                            <span className="truncate">Settings</span>
-                                        </button>
-                                        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                                            <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                                            <span className="truncate">Help & Support</span>
-                                        </button>
+                                        <button 
+    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+    onClick={() => {
+        navigate('/settings');
+        setShowUserMenu(false);
+    }}
+>
+    <Settings className="h-4 w-4 flex-shrink-0" />
+    <span className="truncate">Settings</span>
+</button>
+
+<button 
+    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+    onClick={() => {
+        navigate('/help');
+        setShowUserMenu(false);
+    }}
+>
+    <ExternalLink className="h-4 w-4 flex-shrink-0" />
+    <span className="truncate">Help & Support</span>
+</button>
                                     </div>
                                 </div>
                             )}
@@ -3580,6 +4151,23 @@ if (complaint) {
                         isLoading={isSubmitting}
                     />
                 );
+            case '/settings':
+    return (
+        <SettingsPage 
+            onBack={() => navigate('/')} 
+            navigate={navigate}
+            showNotification={showNotification}
+        />
+    );
+
+case '/help':
+    return (
+        <HelpSupportPage 
+            onBack={() => navigate('/')} 
+            navigate={navigate}
+            showNotification={showNotification}
+        />
+    );    
                 
             case '/faq':
                 return <FaqPage navigate={navigate} />;
