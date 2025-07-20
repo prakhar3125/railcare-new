@@ -809,6 +809,7 @@ export const pollForUpdates = async (lastUpdateTime, department = null) => {
 };
 
 // ✅ NEW: Context-aware message formatting for different viewers
+// ✅ NEW: Context-aware message formatting for different viewers
 export const getComplaintByIdForViewer = async (complaintId, viewerType = 'user') => {
     try {
         const { data, error } = await supabase
@@ -845,7 +846,7 @@ export const getComplaintByIdForViewer = async (complaintId, viewerType = 'user'
             throw error;
         }
 
-        // Context-aware sender naming
+        // ✅ NEW: Context-aware sender naming
         const getSenderLabel = (communication) => {
             const { sender_type } = communication;
             
@@ -858,10 +859,10 @@ export const getComplaintByIdForViewer = async (complaintId, viewerType = 'user'
                     default: return 'Unknown';
                 }
             } else {
-                // Staff perspective
+                // Staff perspective  
                 switch (sender_type) {
                     case 'user': return 'Customer';
-                    case 'staff': return 'Support Agent';
+                    case 'staff': return 'You';
                     case 'system': return 'System';
                     default: return 'Unknown';
                 }
@@ -881,14 +882,16 @@ export const getComplaintByIdForViewer = async (complaintId, viewerType = 'user'
             assignedTo: data.assigned_to,
             email: data.email,
             phone: data.phone,
+            
             history: data.complaint_history?.map(h => ({
                 action: h.action,
                 details: h.details,
                 remark: h.remark,
                 completed: h.completed,
-                date: h.created_at ? new Date(h.created_at).toLocaleDateString() : null
-            })) || [],
-            // Context-aware communications
+                date: h.created_at ? new Date(h.created_at).toLocaleDateString() + ' at ' + new Date(h.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+            })).sort((a, b) => new Date(a.date) - new Date(b.date)) || [],
+            
+            // ✅ FIXED: Use context-aware sender labels
             communications: data.communications?.filter(c => !c.is_internal).map(c => ({
                 sender: getSenderLabel(c),
                 message: c.message,
@@ -905,6 +908,7 @@ export const getComplaintByIdForViewer = async (complaintId, viewerType = 'user'
         return { success: false, error: error.message };
     }
 };
+
 
 // ✅ Add timeline entry function
 export const addTimelineEntry = async (complaintId, entry) => {

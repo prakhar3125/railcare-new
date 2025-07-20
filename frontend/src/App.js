@@ -2781,9 +2781,55 @@ const DashboardPage = ({ complaints, onSelectComplaint, navigate, isVertical = t
     );
 };
 
-const ComplaintDetailsPage = ({ complaint, onBack }) => {
+// ✅ FIXED: Update ComplaintDetailsPage to accept refreshMessages and handle viewer context
+const ComplaintDetailsPage = ({ complaint, onBack, navigate, showNotification, refreshMessages }) => {
     const [messages, setMessages] = useState(complaint?.communications || []);
     const [newMessage, setNewMessage] = useState('');
+
+    // ✅ NEW: Update messages when complaint changes
+    useEffect(() => {
+        setMessages(complaint?.communications || []);
+    }, [complaint?.communications]);
+
+    // ✅ FIXED: Context-aware handleSendMessage
+    const handleSendMessage = async () => {
+        if (!newMessage.trim()) return;
+        
+        try {
+            // ✅ NEW: Detect viewer context
+            const isStaffView = new URLSearchParams(window.location.search).get('from') === 'staff';
+            const { sendUserMessage, sendStaffMessage, getComplaintByIdForViewer } = await import('./services/complaintService');
+            
+            let result;
+            
+            // ✅ NEW: Send message based on viewer context
+            if (isStaffView) {
+                // Staff sending message
+                result = await sendStaffMessage(complaint.id, newMessage.trim(), 'Support Agent', false);
+            } else {
+                // User sending message
+                result = await sendUserMessage(complaint.id, newMessage.trim());
+            }
+            
+            if (result.success) {
+                // ✅ NEW: Refresh with proper context
+                const refreshResult = await getComplaintByIdForViewer(complaint.id, isStaffView ? 'staff' : 'user');
+                
+                if (refreshResult.success) {
+                    setMessages(refreshResult.data.communications);
+                }
+                
+                setNewMessage('');
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            alert('Failed to send message. Please try again.');
+        }
+    };
+
+    // Rest of the component remains the same...
     if (!complaint) {
         return (
             <div className="text-center py-20">
@@ -2798,40 +2844,6 @@ const ComplaintDetailsPage = ({ complaint, onBack }) => {
             </div>
         );
     }
-
-
-
-  // ✅ FIXED: Replace your current handleSendMessage with this
-const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
-    
-    try {
-        // Use the sendUserMessage function from complaintService
-        const { sendUserMessage } = await import('./services/complaintService');
-        
-        const result = await sendUserMessage(complaint.id, newMessage.trim(), 'You');
-        
-        if (result.success) {
-            // Add message to local state for immediate display
-            const userMessage = {
-                sender: 'You',
-                message: newMessage,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-            
-            setMessages(prev => [...prev, userMessage]);
-            setNewMessage('');
-            
-            // Don't add the automatic bot response since this is real now
-        } else {
-            throw new Error(result.error);
-        }
-    } catch (error) {
-        console.error('Error sending message:', error);
-        alert('Failed to send message. Please try again.');
-    }
-};
-
 
     const statusStyles = {
         'In Progress': 'bg-orange-50 text-orange-700 border-orange-200',
@@ -2886,51 +2898,51 @@ const handleSendMessage = async () => {
             <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-    <h3 className="text-lg font-bold text-gray-800 mb-4">Complaint Details</h3>
-    <div className="space-y-3">
-        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-500 text-sm">Category</span>
-            <span className="font-medium text-gray-800 text-right text-sm">{complaint.category}</span>
-        </div>
-        {complaint.subcategory && (
-            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-500 text-sm">Subcategory</span>
-                <span className="font-medium text-gray-800 text-right text-sm">{complaint.subcategory}</span>
-            </div>
-        )}
-        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-500 text-sm">Submitted</span>
-            <span className="font-medium text-gray-800 text-right text-sm">{complaint.date}</span>
-        </div>
-        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-500 text-sm">PNR</span>
-            <span className="font-medium text-gray-800 text-right text-sm">{complaint.pnr}</span>
-        </div>
-        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-500 text-sm">Priority</span>
-            <span className={`font-medium text-right text-sm ${
-                complaint.priority === 'critical' ? 'text-red-600' :
-                complaint.priority === 'high' ? 'text-orange-600' :
-                'text-blue-600'
-            }`}>
-                {complaint.priority?.toUpperCase() || 'MEDIUM'}
-            </span>
-        </div>
-        <div className="flex justify-between items-center py-2">
-            <span className="text-gray-500 text-sm">Assigned To</span>
-            <span className="font-medium text-indigo-800 text-right text-sm">
-                {complaint.assignedTo || 'General Grievance Cell'}
-            </span>
-        </div>
-    </div>
-</div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Complaint Details</h3>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                <span className="text-gray-500 text-sm">Category</span>
+                                <span className="font-medium text-gray-800 text-right text-sm">{complaint.category}</span>
+                            </div>
+                            {complaint.subcategory && (
+                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                    <span className="text-gray-500 text-sm">Subcategory</span>
+                                    <span className="font-medium text-gray-800 text-right text-sm">{complaint.subcategory}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                <span className="text-gray-500 text-sm">Submitted</span>
+                                <span className="font-medium text-gray-800 text-right text-sm">{complaint.date}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                <span className="text-gray-500 text-sm">PNR</span>
+                                <span className="font-medium text-gray-800 text-right text-sm">{complaint.pnr}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                <span className="text-gray-500 text-sm">Priority</span>
+                                <span className={`font-medium text-right text-sm ${
+                                    complaint.priority === 'critical' ? 'text-red-600' :
+                                    complaint.priority === 'high' ? 'text-orange-600' :
+                                    'text-blue-600'
+                                }`}>
+                                    {complaint.priority?.toUpperCase() || 'MEDIUM'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center py-2">
+                                <span className="text-gray-500 text-sm">Assigned To</span>
+                                <span className="font-medium text-indigo-800 text-right text-sm">
+                                    {complaint.assignedTo || 'General Grievance Cell'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Description</h3>
                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                             <p className="text-gray-600 text-sm leading-relaxed break-words whitespace-normal">
-    {complaint.description}
-</p>
+                                {complaint.description}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -2939,7 +2951,6 @@ const handleSendMessage = async () => {
                     <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                         <h3 className="text-lg font-bold text-gray-800 mb-6">Progress Timeline</h3>
                         <div className="relative">
-                            {/* ✅ Add safety check for history array */}
                             {complaint.history && complaint.history.length > 0 ? (
                                 complaint.history.map((item, index) => (
                                     <TimelineItem 
@@ -2965,7 +2976,6 @@ const handleSendMessage = async () => {
                 </h3>
                 
                 <div className="space-y-3 max-h-64 overflow-y-auto mb-6 pr-2">
-                    {/* ✅ Add safety check for messages array */}
                     {messages && messages.length > 0 ? (
                         messages.map((comm, index) => (
                             <div key={index} className={`p-4 rounded-lg transition-all duration-300 ${
@@ -2992,28 +3002,29 @@ const handleSendMessage = async () => {
                 </div>
                 
                 <div className="border-t border-gray-200 pt-4">
-    <div className="flex gap-2 sm:gap-3">
-        <input
-            type="text"
-            placeholder="Type your message here..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 sm:px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-        />
-        <button 
-            onClick={handleSendMessage} 
-            className="bg-indigo-600 text-white px-3 sm:px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1 sm:gap-2 font-medium text-sm whitespace-nowrap flex-shrink-0"
-        >
-            <Send className="h-4 w-4" />
-            <span className="hidden sm:inline">Send</span>
-        </button>
-    </div>
-</div>
+                    <div className="flex gap-2 sm:gap-3">
+                        <input
+                            type="text"
+                            placeholder="Type your message here..."
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 sm:px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                        />
+                        <button 
+                            onClick={handleSendMessage} 
+                            className="bg-indigo-600 text-white px-3 sm:px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1 sm:gap-2 font-medium text-sm whitespace-nowrap flex-shrink-0"
+                        >
+                            <Send className="h-4 w-4" />
+                            <span className="hidden sm:inline">Send</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
+
 
 const FaqPage = () => {
     const faqData = [
@@ -3337,32 +3348,63 @@ const App = () => {
         const [isLoading, setIsLoading] = useState(true);
         const [error, setError] = useState(null);
         const [retryCount, setRetryCount] = useState(0);
+// ✅ NEW: Context-aware message refresh function
+const refreshMessages = async (complaintId) => {
+    try {
+        const isStaffView = new URLSearchParams(window.location.search).get('from') === 'staff';
+        const { getComplaintByIdForViewer } = await import('./services/complaintService');
+        const result = await getComplaintByIdForViewer(complaintId.trim(), isStaffView ? 'staff' : 'user');
+        
+        if (result.success && complaint) {
+            setComplaint(prev => ({
+                ...prev,
+                communications: result.data.communications
+            }));
+        }
+    } catch (error) {
+        console.error('Error refreshing messages:', error);
+    }
+};
 
-        const fetchComplaint = async (id) => {
-            setIsLoading(true);
-            setError(null);
-            
-            try {
-                if (!id || id.trim().length === 0) {
-                    throw new Error('Invalid complaint ID');
-                }
+        // ✅ FIXED: Add viewer context detection
+const fetchComplaint = async (id) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+        if (!id || id.trim().length === 0) {
+            throw new Error('Invalid complaint ID');
+        }
 
-                // Import the service function
-                const { getComplaintById } = await import('./services/complaintService');
-                const result = await getComplaintById(id.trim());
-                
-                if (result.success) {
-                    setComplaint(result.data);
-                } else {
-                    throw new Error(result.error || 'Complaint not found');
-                }
-            } catch (err) {
-                console.error('Error fetching complaint:', err);
-                setError(err.message || 'Failed to load complaint details');
-            } finally {
-                setIsLoading(false);
-            }
-        };
+        // ✅ NEW: Detect if viewing from staff dashboard
+        const isStaffView = new URLSearchParams(window.location.search).get('from') === 'staff';
+        
+        // ✅ NEW: Use context-aware function instead of getComplaintById
+        const { getComplaintByIdForViewer } = await import('./services/complaintService');
+        const result = await getComplaintByIdForViewer(id.trim(), isStaffView ? 'staff' : 'user');
+        
+        if (result.success) {
+            setComplaint(result.data);
+        } else {
+            throw new Error(result.error || 'Complaint not found');
+        }
+    } catch (err) {
+        console.error('Error fetching complaint:', err);
+        setError(err.message || 'Failed to load complaint details');
+    } finally {
+        setIsLoading(false);
+    }
+};
+// ✅ NEW: Auto-refresh messages with context
+useEffect(() => {
+    if (!complaint?.id) return;
+    
+    const interval = setInterval(() => {
+        refreshMessages(complaint.id);
+    }, 10000); // Refresh every 10 seconds
+    
+    return () => clearInterval(interval);
+}, [complaint?.id]);
 
         useEffect(() => {
             if (complaintId) {
@@ -3435,19 +3477,22 @@ const App = () => {
         }
 
         // Success State - Show Complaint Details
-        if (complaint) {
-            return (
-                <ComplaintDetailsPage 
-                    complaint={complaint} 
-                    onBack={() => {
-                        setComplaint(null);
-                        navigate(backPath);
-                    }}
-                    navigate={navigate}
-                    showNotification={showNotification}
-                />
-            );
-        }
+        // Success State - Show Complaint Details
+if (complaint) {
+    return (
+        <ComplaintDetailsPage 
+            complaint={complaint} 
+            onBack={() => {
+                setComplaint(null);
+                navigate(backPath);
+            }}
+            navigate={navigate}
+            showNotification={showNotification}
+            refreshMessages={refreshMessages} // ✅ NEW: Pass refresh function
+        />
+    );
+}
+
 
         // Fallback State
         return (
