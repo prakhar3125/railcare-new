@@ -20,6 +20,8 @@ import logo from './logo.png';
 import railwayImage from './image.png';
 import railwayImageBW from './pexels-raj-photography-83911134-20402113.jpg';
 import railwayImage1 from './pexels-thangpu-paite-3365148-13110584.jpg';
+import { submitComplaint, getComplaintsByContact, getComplaintById } from './services/complaintService';
+
 
 // ++++++++++++++++++++=alternate algo++++++++++++++++++++
 // const analyzeComplaintText = (text) => {
@@ -244,6 +246,7 @@ import railwayImage1 from './pexels-thangpu-paite-3365148-13110584.jpg';
 // };
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 
 // ++++++++++++++++++++=alternate algo++++++++++++++++++++
@@ -3182,160 +3185,25 @@ const Footer = () => {
     );
 };
 
-
 const App = () => {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
-    const [complaints, setComplaints] = useState({
-    'CMP2025060701': { 
-        id: 'CMP2025060701', 
-        pnr: '2456879541', 
-        title: "Refund not processed for failed booking", 
-        category: 'Refund', 
-        subcategory: 'Payment Issues',
-        date: '2025-06-07', 
-        status: 'In Progress', 
-        description: 'Payment was deducted from my account but the ticket was not booked.', 
-        assignedTo: 'Finance - Refunds Team',
-        priority: 'high',
-        email: 'prakhar@railcare.com',
-        phone: '+91 9876543210',
-        // ✅ New simplified 3-step timeline
-        history: [
-            { 
-                date: 'June 9 at 5:50 PM', 
-                action: 'Complaint Submitted', 
-                details: 'Your complaint has been received and is awaiting assignment.', 
-                completed: true 
-            }, 
-            { 
-                date: 'June 9 at 5:50 PM', 
-                action: 'Status of Complaint', 
-                details: 'Assigned - Priority handling initiated', 
-                completed: true 
-            }, 
-            { 
-                date: 'June 10 at 11:30 AM', 
-                action: 'Investigation & Resolution', 
-                details: 'Status: Department will investigate and provide resolution.',
-                remark: 'Finance team is reviewing the transaction details and coordinating with payment gateway for refund processing.',
-                completed: false 
-            }
-        ],
-        communications: [
-            { sender: 'System', message: 'Your complaint has been registered successfully.', time: 'June 7, 10:15 AM' },
-            { sender: 'Support Agent', message: 'We have received your refund request.', time: 'June 7, 10:17 AM' }
-        ]
-    },
-    'CMP2025060802': { 
-        id: 'CMP2025060802', 
-        pnr: '8541236587', 
-        title: "Poor food quality in Vande Bharat Express", 
-        category: 'Catering', 
-        subcategory: 'Food Quality',
-        date: '2025-06-08', 
-        status: 'Resolved', 
-        description: 'The meal served was stale and cold.', 
-        assignedTo: 'Catering Quality Team',
-        priority: 'medium',
-        email: 'prakhar@railcare.com',
-        phone: '+91 9876543210',
-        // ✅ New simplified 3-step timeline
-        history: [
-            { 
-                date: 'June 9 at 5:50 PM', 
-                action: 'Complaint Submitted', 
-                details: 'Your complaint has been received and is awaiting assignment.', 
-                completed: true 
-            }, 
-            { 
-                date: 'June 9 at 5:50 PM', 
-                action: 'Status of Complaint', 
-                details: 'Assigned - Standard processing queue', 
-                completed: true 
-            }, 
-            { 
-                date: 'June 9 at 8:30 PM', 
-                action: 'Investigation & Resolution', 
-                details: 'Status: Complaint has been resolved',
-                remark: 'Quality audit conducted with vendor. Corrective measures implemented and partial refund processed to customer account.',
-                completed: true 
-            }
-        ],
-        communications: [
-            { sender: 'System', message: 'Your complaint regarding food quality has been registered.', time: 'June 8, 01:20 PM' },
-            { sender: 'Catering Manager', message: 'Investigation completed. Issue resolved.', time: 'June 9, 11:10 AM' }
-        ]
-    }
-});
+    const [currentPath, setCurrentPath] = useState(window.location.pathname);
+    const [complaints, setComplaints] = useState([]);
 
-// ✅ Add this function before the App component
-const generateComplaintStatus = (category, priority, timeElapsed) => {
-    const statusOptions = {
-        'Emergency': {
-            'critical': [
-                'Assigned - Emergency response team activated',
-                'Under Review - Immediate action being taken',
-                'Resolved - Emergency assistance provided'
-            ],
-            'high': [
-                'Assigned - High priority handling',
-                'Under Review - Urgent investigation in progress', 
-                'Resolved - Issue addressed promptly'
-            ]
-        },
-        'Refund': {
-            'high': [
-                'Assigned - Finance team reviewing',
-                'Under Review - Payment verification in progress',
-                'Resolved - Refund processed successfully'
-            ],
-            'medium': [
-                'Assigned - Standard refund processing',
-                'Under Review - Transaction being verified',
-                'Resolved - Amount credited to account'
-            ]
-        },
-        'Technical': {
-            'medium': [
-                'Assigned - IT support team notified',
-                'Under Review - Technical investigation ongoing',
-                'Resolved - System issue fixed'
-            ]
-        },
-        'Catering': {
-            'medium': [
-                'Assigned - Catering quality team reviewing',
-                'Under Review - Vendor audit in progress',
-                'Resolved - Quality standards enforced'
-            ]
-        },
-        'default': [
-            'Assigned - Department team assigned',
-            'Under Review - Investigation in progress',
-            'Resolved - Issue resolved successfully'
-        ]
-    };
-    
-    const categoryStatuses = statusOptions[category] || statusOptions['default'];
-    const priorityStatuses = categoryStatuses[priority] || statusOptions['default'];
-    
-    // Return status based on time elapsed (mock logic)
-    if (timeElapsed < 1) return priorityStatuses[0]; // Assigned
-    if (timeElapsed < 24) return priorityStatuses[1]; // Under Review  
-    return priorityStatuses[2]; // Resolved
-};
+    // ✅ FIXED: Added all missing state variables
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
+    const [complaintId, setComplaintId] = useState('');
+    const [loadingComplaint, setLoadingComplaint] = useState(false);
+    const [currentComplaint, setCurrentComplaint] = useState(null);
+    const [notification, setNotification] = useState({ 
+        isVisible: false, 
+        type: '', 
+        title: '', 
+        message: '' 
+    });
 
-
-    const [notification, setNotification] = useState({ isVisible: false, type: '', title: '', message: '' });
-    const handleUpdateComplaint = (complaintId, updatedComplaintData) => {
-        setComplaints(prev => ({
-            ...prev,
-            [complaintId]: updatedComplaintData
-        }));
-        // Optionally, show a success notification for the admin
-        // console.log(`Complaint ${complaintId} updated by staff.`);
-    };
-
+    // ✅ Navigation and path handling
     useEffect(() => {
         const onLocationChange = () => {
             setCurrentPath(window.location.pathname);
@@ -3356,208 +3224,361 @@ const generateComplaintStatus = (category, priority, timeElapsed) => {
         setNotification({ isVisible: true, type, title, message });
     };
 
-   const handleComplaintSubmit = (formData) => {
-    const id = `CMP2025${Math.floor(100000 + Math.random() * 900000)}`;
-    
-    // ✅ Generate dynamic status based on category priority
-    const getInitialStatus = (priority) => {
-        switch(priority) {
-            case 'critical':
-                return 'Assigned - Emergency response team activated';
-            case 'high':
-                return 'Assigned - Priority handling initiated';
-            default:
-                return 'Assigned - Standard processing queue';
-        }
-    };
-    
-    // ✅ Generate dynamic investigation status
-    const getInvestigationStatus = (category, priority) => {
-        if (priority === 'critical') {
-            return 'Status: Emergency response in progress';
-        }
-        return 'Status: Department will investigate and provide resolution.';
-    };
-    
-    // ✅ Generate dynamic remarks
-    const getInvestigationRemark = (category) => {
-        const remarks = {
-            'Emergency': 'Emergency response team has been notified and immediate action is being taken to address the critical situation.',
-            'Refund': 'Finance team is reviewing the transaction details and coordinating with payment gateway for refund processing.',
-            'Technical': 'IT support team is analyzing the technical issue and working on implementing a solution.',
-            'Catering': 'Catering quality team is investigating the food service concern and implementing quality improvements.',
-            'Staff Behavior': 'HR team is reviewing the staff conduct issue and taking appropriate disciplinary action.',
-            'default': 'Department team has been assigned and is actively working to resolve your concern.'
-        };
-        return remarks[category] || remarks['default'];
-    };
-    
-    const currentTime = new Date().toLocaleString('en-US', { 
-        month: 'long', 
-        day: 'numeric', 
-        timeZone: 'Asia/Kolkata',
-        hour: 'numeric',
-        minute: 'numeric',
-        hour12: true
-    });
-    
-    const newComplaint = {
-        id,
-        pnr: formData.pnr,
-        title: formData.title,
-        category: formData.category,
-        subcategory: formData.subcategory || '',
-        date: new Date().toISOString().split('T')[0],
-        status: 'Submitted',
-        description: formData.description,
-        assignedTo: formData.assignedTo || 'General Grievance Cell',
-        priority: formData.priority || 'medium',
-        email: formData.email,
-        phone: formData.phone,
-        // ✅ New standardized 3-step timeline
-        history: [
-            {
-                date: currentTime,
-                action: 'Complaint Submitted',
-                details: 'Your complaint has been received and is awaiting assignment.',
-                completed: true
-            },
-            { 
-                date: currentTime,
-                action: 'Status of Complaint', 
-                details: getInitialStatus(formData.priority || 'medium'), 
-                completed: true 
-            },
-            {
-                date: '',
-                action: 'Investigation & Resolution',
-                details: getInvestigationStatus(formData.category, formData.priority || 'medium'),
-                remark: getInvestigationRemark(formData.category),
-                completed: false
-            }
-        ],
-        communications: [
-            { 
-                sender: 'System', 
-                message: `Your complaint has been successfully registered with ID ${id}. You will receive regular updates.`, 
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-            }
-        ]
-    };
-    
-    console.log('Creating complaint with structure:', newComplaint);
-    
-    setComplaints(prev => ({ ...prev, [id]: newComplaint }));
-    showNotification('success', 'Complaint Submitted Successfully!', `Your complaint has been registered with ID ${id}. You can track its progress anytime.`);
-    navigate('/dashboard');
-};
-
-
-    const handleComplaintLookup = (email, phone) => {
-        // Filter complaints by email or phone
-        const userComplaints = Object.values(complaints).filter(c => 
-            (email && c.email === email) || (phone && c.phone === phone)
-        );
+    // ✅ FIXED: Complaint submission with proper Supabase integration
+    const handleComplaintSubmit = async (complaintData) => {
+        setIsSubmitting(true);
+        setSubmitError(null);
+        setSubmitSuccess(false);
         
-        if (userComplaints.length > 0) {
-            navigate('/dashboard');
-        } else {
-            showNotification('error', 'No Complaints Found', 'No complaints were found for the provided email or phone number. Please check your details and try again.');
+        try {
+            // Analyze the complaint text for categorization
+            const analysisResult = analyzeComplaintText(complaintData.description);
+            
+            // Submit to Supabase
+            const result = await submitComplaint(complaintData, analysisResult);
+            
+            if (result.success) {
+                setSubmitSuccess(true);
+                setComplaintId(result.data.complaint_number || result.data.id);
+                
+                // Show success notification
+                showNotification(
+                    'success', 
+                    'Complaint Submitted Successfully!', 
+                    `Your complaint has been registered with ID: ${result.data.complaint_number || result.data.id}`
+                );
+                
+                // Navigate to tracking page after delay
+                setTimeout(() => {
+                    navigate(`/dashboard/${result.data.complaint_number || result.data.id}`);
+                }, 2000);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            const errorMessage = error.message || 'Failed to submit complaint. Please try again.';
+            setSubmitError(errorMessage);
+            showNotification('error', 'Submission Failed', errorMessage);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const handleTrackComplaint = (id) => {
-        if (complaints[id]) {
-            navigate(`/dashboard/${id}`);
-        } else {
-            showNotification('error', 'Complaint Not Found', 'The complaint ID you entered was not found. Please check the ID and try again.');
+    // ✅ FIXED: Complaint lookup with proper database integration
+    const handleComplaintLookup = async (email, phone) => {
+        try {
+            // Validate input
+            if (!email && !phone) {
+                showNotification('error', 'Input Required', 'Please provide either email or phone number.');
+                return;
+            }
+
+            setIsSubmitting(true);
+            showNotification('info', 'Loading...', 'Fetching your complaints...');
+
+            // Import the service function
+            const { getComplaintsByContact } = await import('./services/complaintService');
+            
+            // Fetch complaints from database
+            const result = await getComplaintsByContact(email, phone);
+            
+            if (result.success && result.data.length > 0) {
+                // Update complaints state
+                setComplaints(result.data);
+                
+                // Navigate to dashboard
+                navigate('/dashboard');
+                
+                // Show success message
+                showNotification(
+                    'success', 
+                    'Complaints Loaded', 
+                    `Found ${result.data.length} complaint(s) for your account.`
+                );
+            } else if (result.success && result.data.length === 0) {
+                showNotification('info', 'No Complaints Found', 'No complaints found for the provided contact information.');
+            } else {
+                showNotification('error', 'Lookup Failed', result.error);
+            }
+        } catch (error) {
+            showNotification('error', 'Lookup Failed', 'Unable to retrieve complaints. Please try again.');
+            console.error('Complaint lookup error:', error);
+        } finally {
+            setIsSubmitting(false);
         }
     };
-    
+
+    // ✅ FIXED: Complaint tracking with database integration
+    const handleTrackComplaint = async (id) => {
+        try {
+            if (id && id.trim()) {
+                navigate(`/dashboard/${id.trim()}`);
+            } else {
+                showNotification('error', 'Invalid Input', 'Please enter a valid complaint ID.');
+            }
+        } catch (error) {
+            showNotification('error', 'Tracking Failed', 'Unable to track complaint. Please verify the complaint ID.');
+        }
+    };
+
+    // ✅ NEW: Complaint Details Wrapper Component with Supabase Integration
+    const ComplaintDetailsPageWrapper = ({ complaintId, backPath }) => {
+        const [complaint, setComplaint] = useState(null);
+        const [isLoading, setIsLoading] = useState(true);
+        const [error, setError] = useState(null);
+        const [retryCount, setRetryCount] = useState(0);
+        
+        const fetchComplaint = async (id) => {
+            setIsLoading(true);
+            setError(null);
+            
+            try {
+                if (!id || id.trim().length === 0) {
+                    throw new Error('Invalid complaint ID');
+                }
+
+                // Import the service function
+                const { getComplaintById } = await import('./services/complaintService');
+                const result = await getComplaintById(id.trim());
+                
+                if (result.success) {
+                    setComplaint(result.data);
+                } else {
+                    throw new Error(result.error || 'Complaint not found');
+                }
+            } catch (err) {
+                console.error('Error fetching complaint:', err);
+                setError(err.message || 'Failed to load complaint details');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        useEffect(() => {
+            if (complaintId) {
+                fetchComplaint(complaintId);
+            }
+        }, [complaintId]);
+
+        const handleRetry = () => {
+            setRetryCount(prev => prev + 1);
+            fetchComplaint(complaintId);
+        };
+
+        // Loading State
+        if (isLoading) {
+            return (
+                <div className="text-center py-12 sm:py-20">
+                    <div className="flex justify-center mb-6">
+                        <div className="relative">
+                            <div className="w-16 h-16 border-4 border-indigo-200 rounded-full animate-spin"></div>
+                            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                        </div>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+                        Loading Complaint Details...
+                    </h2>
+                    <p className="text-gray-600 mb-4">
+                        Please wait while we fetch your complaint information.
+                    </p>
+                    <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Error State
+        if (error && !complaint) {
+            return (
+                <div className="text-center py-12 sm:py-20">
+                    <div className="flex justify-center mb-6">
+                        <div className="p-4 bg-red-100 rounded-xl">
+                            <AlertTriangle className="h-12 w-12 text-red-400" />
+                        </div>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+                        Complaint Not Found
+                    </h2>
+                    <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed">
+                        The complaint you're looking for doesn't exist or may not be available yet. 
+                        Error: {error}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button 
+                            onClick={() => navigate(backPath)}
+                            className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                            Go to Dashboard
+                        </button>
+                        <button 
+                            onClick={handleRetry}
+                            className="px-6 py-3 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                            Retry Loading
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Success State - Show Complaint Details
+        if (complaint) {
+            return (
+                <ComplaintDetailsPage 
+                    complaint={complaint} 
+                    onBack={() => {
+                        setComplaint(null);
+                        navigate(backPath);
+                    }}
+                    navigate={navigate}
+                    showNotification={showNotification}
+                />
+            );
+        }
+
+        // Fallback State
+        return (
+            <div className="text-center py-12 sm:py-20">
+                <div className="flex justify-center mb-6">
+                    <div className="p-4 bg-gray-100 rounded-xl">
+                        <AlertTriangle className="h-12 w-12 text-gray-400" />
+                    </div>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+                    Something went wrong
+                </h2>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed">
+                    Unable to load complaint details. Please try again.
+                </p>
+                <button 
+                    onClick={() => navigate(backPath)}
+                    className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                    Go to Dashboard
+                </button>
+            </div>
+        );
+    };
+
+    // ✅ FIXED: Page rendering with proper Supabase integration
     const renderPage = () => {
-      // MODIFICATION START: Logic to handle dynamic back navigation
-      if (currentPath.startsWith('/dashboard/')) {
-          const url = new URL(window.location.href);
-          const id = url.pathname.split('/dashboard/')[1];
-          const from = url.searchParams.get('from');
+        // ✅ FIXED: Handle dynamic complaint details pages with proper fetching
+        if (currentPath.startsWith('/dashboard/')) {
+            const url = new URL(window.location.href);
+            const id = url.pathname.split('/dashboard/')[1];
+            const from = url.searchParams.get('from');
+            const backPath = from === 'staff' ? '/staff-dashboard' : '/dashboard';
 
-          const complaint = complaints[id];
-          // MODIFIED: Changed back path for staff to go to the new dashboard URL
-          const backPath = from === 'staff' ? '/staff-dashboard' : '/dashboard';
+            // ✅ FIXED: Use ComplaintDetailsPageWrapper instead of hardcoded null
+            return <ComplaintDetailsPageWrapper 
+                complaintId={id} 
+                backPath={backPath}
+            />;
+        }
 
-          return complaint ? (
-              // Pass the correct 'onBack' handler to the details page
-              <ComplaintDetailsPage complaint={complaint} onBack={() => navigate(backPath)} />
-          ) : (
-              <div className="text-center py-20">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">404 - Complaint Not Found</h2>
-                  <p className="text-gray-600 mb-6">The complaint you're looking for doesn't exist or may have been removed.</p>
-                  <button 
-                      onClick={() => navigate(backPath)} // Use the dynamic backPath here too
-                      className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"
-                  >
-                      Go to Dashboard
-                  </button>
-              </div>
-          );
-      }
-    // MODIFICATION END
-
-      switch (currentPath) {
-          case '/':
-          case '/home':
-              return <HomePage navigate={navigate} />;
-          case '/guidelines':
-              return <GuidelinesPage onBack={() => navigate('/')} />;
-          case '/submit':
-              return <ComplaintFormPage onComplaintSubmit={handleComplaintSubmit} />;
-          case '/lookup':
-              return <ComplaintLookupPage onLookup={handleComplaintLookup} />;
-          case '/track':
-              return <TrackComplaintPage onTrack={handleTrackComplaint} />;
-          case '/dashboard':
-              return <DashboardPage 
-                  complaints={Object.values(complaints)} 
-                  onSelectComplaint={(id) => navigate(`/dashboard/${id}`)} 
-                  navigate={navigate} 
-              />;
-          case '/faq':
-              return <FaqPage />;
-        {/* MODIFIED: Combined routes to handle both staff login and dashboard rendering */}
-          case '/staff-login':
-          case '/staff-dashboard':
-              return <StaffLoginPage 
-                      onBack={() => navigate('/')} 
-                      complaints={complaints}
-                      navigate={navigate}
-                      onUpdateComplaint={handleUpdateComplaint}
-                />;
-          default:
-              return (
-                  <div className="text-center py-20">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-4">404 - Page Not Found</h2>
-                      <p className="text-gray-600 mb-6">The page you're looking for doesn't exist.</p>
-                      <button 
-                          onClick={() => navigate('/')} 
-                          className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"
-                      >
-                          Go to Home
-                      </button>
-                  </div>
-              );
-      }
+        // Handle all other routes
+        switch (currentPath) {
+            case '/':
+            case '/home':
+                return <HomePage navigate={navigate} />;
+                
+            case '/guidelines':
+                return <GuidelinesPage onBack={() => navigate('/')} />;
+                
+            case '/submit':
+                return (
+                    <ComplaintFormPage 
+                        onComplaintSubmit={handleComplaintSubmit}
+                        isSubmitting={isSubmitting}
+                        submitSuccess={submitSuccess}
+                        submitError={submitError}
+                        complaintId={complaintId}
+                        navigate={navigate}
+                    />
+                );
+                
+            case '/lookup':
+                return (
+                    <ComplaintLookupPage 
+                        onLookup={handleComplaintLookup}
+                        isLoading={isSubmitting}
+                    />
+                );
+                
+            case '/track':
+                return (
+                    <TrackComplaintPage 
+                        onTrack={handleTrackComplaint}
+                        isLoading={isSubmitting}
+                    />
+                );
+                
+            case '/dashboard':
+                return (
+                    <DashboardPage 
+                        complaints={Array.isArray(complaints) ? complaints : []} 
+                        onSelectComplaint={(id) => navigate(`/dashboard/${id}`)} 
+                        navigate={navigate}
+                        isLoading={isSubmitting}
+                    />
+                );
+                
+            case '/faq':
+                return <FaqPage navigate={navigate} />;
+                
+            case '/staff-login':
+            case '/staff-dashboard':
+                return (
+                    <StaffLoginPage 
+                        onBack={() => navigate('/')} 
+                        navigate={navigate}
+                        showNotification={showNotification}
+                    />
+                );
+                
+            default:
+                return (
+                    <div className="text-center py-12 sm:py-20">
+                        <div className="flex justify-center mb-6">
+                            <div className="p-4 bg-gray-100 rounded-xl">
+                                <Search className="h-12 w-12 text-gray-400" />
+                            </div>
+                        </div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+                            404 - Page Not Found
+                        </h2>
+                        <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                            The page you're looking for doesn't exist or may have been moved.
+                        </p>
+                        <button 
+                            onClick={() => navigate('/')} 
+                            className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                            Go to Home
+                        </button>
+                    </div>
+                );
+        }
     };
 
+    // ✅ Main App render
     return (
-    <div className="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
-        <Header navigate={navigate} currentPath={currentPath} />
-        <main className="container mx-auto p-4 sm:p-6 lg:p-8 flex-grow">
-            {renderPage()}
-        </main>
-        <Footer /> {/* Add this line */}
-        <Modal {...notification} onClose={() => setNotification(prev => ({...prev, isVisible: false}))} />
-    </div>
-);
+        <div className="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+            <Header navigate={navigate} currentPath={currentPath} />
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8 flex-grow">
+                {renderPage()}
+            </main>
+            <Footer />
+            <Modal 
+                {...notification} 
+                onClose={() => setNotification(prev => ({...prev, isVisible: false}))} 
+            />
+        </div>
+    );
 };
+
 
 export default App;

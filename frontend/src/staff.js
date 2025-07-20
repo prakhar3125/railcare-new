@@ -17,8 +17,12 @@ import {
     X,
     MessageSquare
 } from 'lucide-react';
+// NEW IMPORTS - Add these for Supabase integration
+import { getComplaints, updateComplaintStatus } from './services/complaintService';
+import { getDepartmentStructure } from './utils/categoryHelpers';
 
-const StaffLoginPage = ({ onBack, complaints, navigate, onUpdateComplaint }) => {
+// UPDATED PROPS - Removed complaints and onUpdateComplaint
+const StaffLoginPage = ({ onBack, navigate }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loginData, setLoginData] = useState({ username: 'admin@railcare.com', password: 'admin@railcare.com' });
     const [loggedInUser, setLoggedInUser] = useState(null);
@@ -31,73 +35,116 @@ const StaffLoginPage = ({ onBack, complaints, navigate, onUpdateComplaint }) => 
     const [newStatus, setNewStatus] = useState('');
     const [newRemark, setNewRemark] = useState('');
 
-    const departmentStructure = {
-        'Emergency': ['Emergency Response Team', 'Operations Emergency Team'],
-        'Safety & Security': ['RPF Security Team', 'Women Safety Cell', 'Account Security Team'],
-        'Refund & Financial': ['Finance Refund Team', 'Payment Gateway Support', 'Finance Dispute Team'],
-        'Ticketing & Booking': ['Booking Support Team', 'Tatkal Support Team', 'Urgent Ticketing Support'],
-        'Catering & Food': ['Catering Quality Team', 'Premium Catering Team', 'IRCTC E-Catering Team'],
-        'Technical Issues': ['Web Portal Backend Support', 'IT Support Level 1', 'Payment Gateway Support'],
-        'Staff Behavior': ['HR Disciplinary Team', 'Employee Grievance Cell', 'HR Recognition Team'],
-        'Cleanliness & Maintenance': ['Coaching Maintenance Team', 'Electrical Team', 'AC Maintenance Team'],
-        'Train Operations': ['Operations Analytics Team', 'System Monitoring Team', 'High Density Route Support'],
-        'Accessibility': ['Accessibility Support Team', 'Accessibility Digital Team', 'Senior Citizen Support Team'],
-        'Station Amenities': ['NR Station Management', 'SR Station Management', 'Commercial Station Section'],
-        'Premium Services': ['Premium User Support', 'Premium Catering Team', 'Premium Maintenance Team'],
-        'Social Media & PR': ['Social Media Crisis Team', 'Public Relations Crisis Team', 'Content Moderation Team'],
-        'Default Assignment': ['General Grievance Cell']
-    };
+    // NEW STATE VARIABLES for Supabase
+    const [allComplaints, setAllComplaints] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [lastRefresh, setLastRefresh] = useState(new Date());
+
+    // UPDATED - Dynamic department structure from categoryKeywords.js
+    const departmentStructure = getDepartmentStructure();
     
- // Replace your existing useEffect with this one
-useEffect(() => {
-    const staffIsLoggedIn = localStorage.getItem('staffIsLoggedIn');
-    if (staffIsLoggedIn) {
-        setIsLoggedIn(true);
-        setLoggedInUser({
-            username: 'admin@railcare.com',
-            role: 'Administrator',
-            loginTime: localStorage.getItem('staffLoginTime') || new Date().toLocaleString(),
-            department: 'System Administration'
-        });
+    const statusOptions = ['Submitted', 'In Progress', 'Resolved', 'Escalated', 'Closed'];
 
-        // --- ADD THIS LOGIC TO RESTORE FILTERS ---
-        const savedDept = localStorage.getItem('staffSelectedDept');
-        const savedSubDept = localStorage.getItem('staffSelectedSubDept');
-
-        if (savedDept) {
-            // Set state for department and sub-department directly
-            setSelectedDepartment(savedDept);
-            if (savedSubDept) {
-                setSelectedSubDepartment(savedSubDept);
-            }
-
-            // Manually re-apply the filter logic based on restored selections
-            let newFilteredComplaints = [];
-            if (savedSubDept) {
-                 // Filter by sub-department if it exists
-                newFilteredComplaints = Object.values(complaints).filter(c => c.assignedTo === savedSubDept);
+    // NEW FUNCTION - Load complaints from Supabase
+    const loadComplaints = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await getComplaints();
+            if (result.success) {
+                // Transform database data to match current UI structure
+                const transformedComplaints = result.data.map(complaint => ({
+                    id: complaint.complaint_number || complaint.id,
+                    title: complaint.title,
+                    description: complaint.description,
+                    email: complaint.email,
+                    phone: complaint.phone,
+                    location: complaint.location,
+                    status: complaint.status,
+                    priority: complaint.priority,
+                    assignedTo: complaint.assigned_to,
+                    category: complaint.detected_category,
+                    subcategory: complaint.detected_subcategory,
+                    date: complaint.created_at,
+                    // Transform communications
+                    communications: complaint.communications || [],
+                    // Transform history
+                    history: complaint.complaint_history?.map(h => ({
+                        action: h.action,
+                        details: h.details,
+                        remark: h.remark,
+                        date: h.created_at,
+                        completed: h.completed
+                    })) || []
+                }));
+                setAllComplaints(transformedComplaints);
+                setLastRefresh(new Date());
             } else {
-                // Otherwise, filter by the main department
-                const subdepartments = departmentStructure[savedDept] || [];
-                newFilteredComplaints = Object.values(complaints).filter(complaint =>
+                setError(result.error);
+            }
+        } catch (err) {
+            setError('Failed to load complaints');
+            console.error('Error loading complaints:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // NEW FUNCTION - Refresh complaints
+    const handleRefresh = () => {
+        loadComplaints();
+    };
+
+    // UPDATED useEffect - Load data from database
+    useEffect(() => {
+        const staffIsLoggedIn = localStorage.getItem('staffIsLoggedIn');
+        if (staffIsLoggedIn) {
+            setIsLoggedIn(true);
+            setLoggedInUser({
+                username: 'admin@railcare.com',
+                role: 'Administrator',
+                loginTime: localStorage.getItem('staffLoginTime') || new Date().toLocaleString(),
+                department: 'System Administration'
+            });
+
+            // Load complaints from database
+            loadComplaints();
+
+            // Restore saved filters
+            const savedDept = localStorage.getItem('staffSelectedDept');
+            const savedSubDept = localStorage.getItem('staffSelectedSubDept');
+            if (savedDept) {
+                setSelectedDepartment(savedDept);
+                if (savedSubDept) {
+                    setSelectedSubDepartment(savedSubDept);
+                }
+            }
+        }
+    }, []);
+
+    // NEW useEffect - Handle filtering when data changes
+    useEffect(() => {
+        if (selectedDepartment && allComplaints.length > 0) {
+            let newFilteredComplaints = [];
+            if (selectedSubDepartment) {
+                newFilteredComplaints = allComplaints.filter(c => c.assignedTo === selectedSubDepartment);
+            } else {
+                const subdepartments = departmentStructure[selectedDepartment] || [];
+                newFilteredComplaints = allComplaints.filter(complaint =>
                     subdepartments.includes(complaint.assignedTo)
                 );
             }
             setFilteredComplaints(newFilteredComplaints);
         }
-        // --- END OF ADDED LOGIC ---
-    }
-}, [complaints]); // Add `complaints` to the dependency array
-    const statusOptions = ['Submitted', 'In Progress', 'Resolved', 'Escalated', 'Closed'];
+    }, [allComplaints, selectedDepartment, selectedSubDepartment]);
 
-     const handleLogin = (e) => {
+    const handleLogin = (e) => {
         e.preventDefault();
         if (loginData.username === 'admin@railcare.com' && loginData.password === 'admin@railcare.com') {
             const loginTime = new Date().toLocaleString();
-            // 1. Persist login state in browser's local storage
             localStorage.setItem('staffIsLoggedIn', 'true');
             localStorage.setItem('staffLoginTime', loginTime);
-
             setIsLoggedIn(true);
             setLoggedInUser({
                 username: loginData.username,
@@ -105,67 +152,63 @@ useEffect(() => {
                 loginTime: loginTime,
                 department: 'System Administration'
             });
-            // 2. Navigate to the new dashboard URL
             navigate('/staff-dashboard');
         } else {
             alert('Invalid credentials! Please use admin/admin');
         }
     };
     
-    // Replace your handleLogout function with this one
-// Replace the existing handleLogout function in staff.js with this one:
-const handleLogout = (redirectPath = '/staff-login') => {
-    // 1. Clear all session and filter data from localStorage
-    localStorage.removeItem('staffIsLoggedIn');
-    localStorage.removeItem('staffLoginTime');
-    localStorage.removeItem('staffSelectedDept');
-    localStorage.removeItem('staffSelectedSubDept');
-
-    // 2. Reset all component state to its initial values
-    setIsLoggedIn(false);
-    setLoggedInUser(null);
-    setSelectedDepartment('');
-    setSelectedSubDepartment('');
-    setFilteredComplaints([]);
-    setLoginData({ username: '', password: '' });
-    setEditingComplaint(null);
-    
-    // 3. Navigate to the desired path (either home or the login page)
-    navigate(redirectPath);
-};
-
-    // Replace your handleDepartmentChange function with this one
-const handleDepartmentChange = (department) => {
-    setSelectedDepartment(department);
-    setSelectedSubDepartment(''); // This resets sub-department
-
-    // Save/Remove selection from localStorage
-    if (department) {
-        localStorage.setItem('staffSelectedDept', department);
-        localStorage.removeItem('staffSelectedSubDept'); // Clear sub-dept selection
-    } else {
+    const handleLogout = (redirectPath = '/staff-login') => {
+        localStorage.removeItem('staffIsLoggedIn');
+        localStorage.removeItem('staffLoginTime');
         localStorage.removeItem('staffSelectedDept');
         localStorage.removeItem('staffSelectedSubDept');
-    }
 
-    // Filter complaints based on the new selection
-    if (department) {
-        const subdepartments = departmentStructure[department] || [];
-        const filtered = Object.values(complaints).filter(complaint =>
-            subdepartments.includes(complaint.assignedTo)
-        );
-        setFilteredComplaints(filtered);
-    } else {
+        setIsLoggedIn(false);
+        setLoggedInUser(null);
+        setSelectedDepartment('');
+        setSelectedSubDepartment('');
         setFilteredComplaints([]);
-    }
-};
+        setAllComplaints([]);
+        setLoginData({ username: '', password: '' });
+        setEditingComplaint(null);
+        
+        navigate(redirectPath);
+    };
+
+    // UPDATED - Use allComplaints instead of complaints prop
+    const handleDepartmentChange = (department) => {
+        setSelectedDepartment(department);
+        setSelectedSubDepartment('');
+
+        if (department) {
+            localStorage.setItem('staffSelectedDept', department);
+            localStorage.removeItem('staffSelectedSubDept');
+        } else {
+            localStorage.removeItem('staffSelectedDept');
+            localStorage.removeItem('staffSelectedSubDept');
+        }
+
+        if (department && allComplaints.length > 0) {
+            const subdepartments = departmentStructure[department] || [];
+            const filtered = allComplaints.filter(complaint =>
+                subdepartments.includes(complaint.assignedTo)
+            );
+            setFilteredComplaints(filtered);
+        } else {
+            setFilteredComplaints([]);
+        }
+    };
 
     const handleSubDepartmentChange = (subDepartment) => {
         setSelectedSubDepartment(subDepartment);
+        
         if (subDepartment) {
-            const filtered = Object.values(complaints).filter(c => c.assignedTo === subDepartment);
+            localStorage.setItem('staffSelectedSubDept', subDepartment);
+            const filtered = allComplaints.filter(c => c.assignedTo === subDepartment);
             setFilteredComplaints(filtered);
         } else {
+            localStorage.removeItem('staffSelectedSubDept');
             handleDepartmentChange(selectedDepartment);
         }
     };
@@ -176,43 +219,40 @@ const handleDepartmentChange = (department) => {
         setNewRemark('');
     };
 
-    const handleSaveChanges = (complaintId) => {
-        const originalComplaint = complaints[complaintId];
-        if (!originalComplaint) return;
+    // UPDATED - Use Supabase for updating complaints
+    const handleSaveChanges = async (complaintId) => {
+        try {
+            setLoading(true);
+            
+            // Find the complaint to get the actual database ID
+            const complaint = allComplaints.find(c => c.id === complaintId);
+            if (!complaint) {
+                alert('Complaint not found');
+                return;
+            }
 
-        const currentTime = new Date().toLocaleString('en-US', {
-            month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
-        });
-        const staffName = loggedInUser.username;
+            const result = await updateComplaintStatus(
+                complaint.id,
+                newStatus,
+                newRemark.trim(),
+                loggedInUser.username
+            );
 
-        const updatedComplaint = {
-            ...originalComplaint,
-            status: newStatus,
-            history: originalComplaint.history.map(step => {
-                if (step.action === 'Investigation & Resolution') {
-                    return {
-                        ...step,
-                        completed: newStatus === 'Resolved' || newStatus === 'Closed',
-                        details: `Status: ${newStatus}`,
-                        remark: newRemark.trim() ? newRemark.trim() : step.remark,
-                        date: step.completed ? step.date : currentTime
-                    };
-                }
-                return step;
-            }),
-            communications: [
-                ...originalComplaint.communications,
-                {
-                    sender: `Support Agent (${staffName})`,
-                    message: `Status updated to "${newStatus}". ${newRemark.trim() ? 'Remark: ' + newRemark.trim() : ''}`,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                }
-            ]
-        };
-        onUpdateComplaint(complaintId, updatedComplaint);
-        setEditingComplaint(null);
-        setNewStatus('');
-        setNewRemark('');
+            if (result.success) {
+                // Reload complaints to get updated data
+                await loadComplaints();
+                setEditingComplaint(null);
+                setNewStatus('');
+                setNewRemark('');
+            } else {
+                alert('Failed to update complaint: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error updating complaint: ' + error.message);
+            console.error('Error updating complaint:', error);
+        } finally {
+            setLoading(false);
+        }
     };
     
     const handleCancelEdit = () => {
@@ -282,17 +322,17 @@ const handleDepartmentChange = (department) => {
         return (
             <div className="flex items-center justify-center py-8 sm:py-12 px-3 sm:px-4">
                 <div className="w-full max-w-md">
-                     <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8">
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8">
                         <div className="flex items-center justify-between mb-6">
                             <button 
-    onClick={() => handleLogout('/')} // <-- This is the modified line
-    className="text-orange-600 hover:text-orange-800 font-medium flex items-center gap-2 group touch-manipulation"
-    style={{ minHeight: '44px' }}
->
-    <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-    <span className="hidden sm:inline">Back to Home</span>
-    <span className="sm:hidden">Back</span>
-</button>
+                                onClick={() => handleLogout('/')}
+                                className="text-orange-600 hover:text-orange-800 font-medium flex items-center gap-2 group touch-manipulation"
+                                style={{ minHeight: '44px' }}
+                            >
+                                <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                                <span className="hidden sm:inline">Back to Home</span>
+                                <span className="sm:hidden">Back</span>
+                            </button>
                         </div>
 
                         <div className="text-center mb-8">
@@ -349,14 +389,6 @@ const handleDepartmentChange = (department) => {
                                 Login to Dashboard
                             </button>
                         </form>
-
-                        {/* <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                            <p className="text-sm text-gray-600 text-center">
-                                <strong>Demo Credentials:</strong><br />
-                                Username: admin<br />
-                                Password: admin
-                            </p>
-                        </div> */}
                     </div>
                 </div>
             </div>
@@ -366,7 +398,7 @@ const handleDepartmentChange = (department) => {
     return (
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
                     <div className="flex items-center space-x-3 sm:space-x-4">
                         <button 
                             onClick={onBack} 
@@ -390,7 +422,8 @@ const handleDepartmentChange = (department) => {
                             </div>
                         </div>
                     </div>
-                     <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4">
+                    
+                    <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4">
                         <div className="bg-green-50 border border-green-200 rounded-lg px-3 sm:px-4 py-2 flex-1 sm:flex-none">
                             <div className="flex items-center space-x-2 sm:space-x-3">
                                 <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -413,20 +446,37 @@ const handleDepartmentChange = (department) => {
                         </div>
 
                         <button
-    onClick={() => handleLogout()}  // ✅ Calls handleLogout with no arguments, uses default '/staff-login'
-    className="px-3 sm:px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium flex items-center space-x-2 touch-manipulation flex-shrink-0"
-    style={{ minHeight: '44px' }}
->
-    <XCircle className="h-4 w-4" />
-    <span className="hidden sm:inline">Logout</span>
-</button>
-
+                            onClick={() => handleLogout()}
+                            className="px-3 sm:px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium flex items-center space-x-2 touch-manipulation flex-shrink-0"
+                            style={{ minHeight: '44px' }}
+                        >
+                            <XCircle className="h-4 w-4" />
+                            <span className="hidden sm:inline">Logout</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Department Selection</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-gray-900">Department Selection</h2>
+                    {lastRefresh && (
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={handleRefresh}
+                                disabled={loading}
+                                className="flex items-center space-x-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                <span className="text-sm">Refresh</span>
+                            </button>
+                            <span className="text-xs text-gray-500">
+                                Last updated: {lastRefresh.toLocaleTimeString()}
+                            </span>
+                        </div>
+                    )}
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Select Department</label>
@@ -460,7 +510,36 @@ const handleDepartmentChange = (department) => {
                 </div>
             </div>
 
-            {selectedDepartment && (
+            {/* Loading State */}
+            {loading && (
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
+                    <div className="flex items-center justify-center space-x-3">
+                        <RefreshCw className="h-5 w-5 animate-spin text-orange-600" />
+                        <span className="text-gray-600">Loading complaints...</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-red-200 p-4 sm:p-6 mb-4 sm:mb-6">
+                    <div className="flex items-center space-x-3">
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                        <div>
+                            <span className="text-red-800 font-medium">Error loading complaints:</span>
+                            <p className="text-red-700 text-sm mt-1">{error}</p>
+                        </div>
+                        <button
+                            onClick={handleRefresh}
+                            className="ml-auto px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {selectedDepartment && !loading && (
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
                     <div className="flex flex-col space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -510,7 +589,7 @@ const handleDepartmentChange = (department) => {
                 </div>
             )}
 
-            {selectedDepartment && (
+            {selectedDepartment && !loading && (
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {filteredAndSearchedComplaints.length > 0 ? (
                         <>
@@ -549,13 +628,12 @@ const handleDepartmentChange = (department) => {
                                                         <div className="flex items-center space-x-2">
                                                             {editingComplaint === complaint.id ? (
                                                                 <>
-                                                                    <button onClick={() => handleSaveChanges(complaint.id)} className="text-green-600 hover:text-green-900 flex items-center space-x-1"><Save className="h-4 w-4" /><span>Save</span></button>
+                                                                    <button onClick={() => handleSaveChanges(complaint.id)} disabled={loading} className="text-green-600 hover:text-green-900 flex items-center space-x-1 disabled:opacity-50"><Save className="h-4 w-4" /><span>Save</span></button>
                                                                     <button onClick={handleCancelEdit} className="text-red-600 hover:text-red-900 flex items-center space-x-1"><X className="h-4 w-4" /><span>Cancel</span></button>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <button onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)}
- className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"><Eye className="h-4 w-4" /><span>View</span></button>
+                                                                    <button onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)} className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"><Eye className="h-4 w-4" /><span>View</span></button>
                                                                     <button onClick={() => handleEditComplaint(complaint)} className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"><Edit className="h-4 w-4" /><span>Edit</span></button>
                                                                 </>
                                                             )}
@@ -589,6 +667,7 @@ const handleDepartmentChange = (department) => {
                                     </tbody>
                                 </table>
                             </div>
+
                             <div className="lg:hidden">
                                 <div className="divide-y divide-gray-200">
                                     {filteredAndSearchedComplaints.map((complaint) => (
@@ -617,14 +696,13 @@ const handleDepartmentChange = (department) => {
                                                         <textarea value={newRemark} onChange={(e) => setNewRemark(e.target.value)} placeholder="Enter your remark here..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm resize-none" rows="3" style={{ fontSize: '16px' }}></textarea>
                                                     </div>
                                                     <div className="flex space-x-2">
-                                                        <button onClick={() => handleSaveChanges(complaint.id)} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><Save className="h-4 w-4" /><span>Save Changes</span></button>
+                                                        <button onClick={() => handleSaveChanges(complaint.id)} disabled={loading} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors touch-manipulation disabled:opacity-50" style={{ minHeight: '44px' }}><Save className="h-4 w-4" /><span>Save Changes</span></button>
                                                         <button onClick={handleCancelEdit} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><X className="h-4 w-4" /><span>Cancel</span></button>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="flex space-x-2">
-                                                    <button onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)}
- className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><Eye className="h-4 w-4" /><span>View Details</span></button>
+                                                    <button onClick={() => navigate(`/dashboard/${complaint.id}?from=staff`)} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><Eye className="h-4 w-4" /><span>View Details</span></button>
                                                     <button onClick={() => handleEditComplaint(complaint)} className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors touch-manipulation" style={{ minHeight: '44px' }}><Edit className="h-4 w-4" /><span>Edit Status</span></button>
                                                 </div>
                                             )}
@@ -656,4 +734,3 @@ const handleDepartmentChange = (department) => {
 };
 
 export default StaffLoginPage;
-   
